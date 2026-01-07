@@ -18,6 +18,11 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
   const [showSavedToast, setShowSavedToast] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Safe array access
+  const safeEmployees = useMemo(() => Array.isArray(employees) ? employees.filter(e => e && e.id) : [], [employees]);
+  const safeShifts = useMemo(() => Array.isArray(shifts) ? shifts.filter(s => s && s.id) : [], [shifts]);
+  const safeSchedules = useMemo(() => Array.isArray(schedules) ? schedules.filter(s => s && s.employeeId) : [], [schedules]);
+
   // Get days in current month
   const daysInMonth = useMemo(() => {
       const year = currentDate.getFullYear();
@@ -34,7 +39,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       const day = date.getDay();
       
       // 1. Check Manual Assignment
-      const assignment = schedules.find(s => s.employeeId === empId && s.date === dateStr);
+      const assignment = safeSchedules.find(s => s.employeeId === empId && s.date === dateStr);
       
       let rawShiftId = '';
       
@@ -42,9 +47,9 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
           rawShiftId = assignment.shiftId;
       } else {
           // 2. Check Default
-          const emp = employees.find(e => e.id === empId);
+          const emp = safeEmployees.find(e => e.id === empId);
           if (emp && emp.defaultShiftId) {
-              const shift = shifts.find(s => s.id === emp.defaultShiftId);
+              const shift = safeShifts.find(s => s.id === emp.defaultShiftId);
               if (shift) {
                   const workDays = shift.workDays || [1,2,3,4,5];
                   if (workDays.includes(day)) {
@@ -57,7 +62,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       if (!rawShiftId || rawShiftId === 'OFF') return '';
 
       // 3. Apply Half Day Visual Logic (Unified)
-      const shiftObj = shifts.find(s => s.id === rawShiftId);
+      const shiftObj = safeShifts.find(s => s.id === rawShiftId);
       if (shiftObj && day === 6 && shiftObj.isSaturdayHalfDay) {
           return shiftObj.id + '_HALF';
       }
@@ -69,7 +74,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       if (!shiftIdRaw || shiftIdRaw === 'OFF') return 'bg-slate-50 text-slate-300';
       
       const shiftId = shiftIdRaw.replace('_HALF', '');
-      const shift = shifts.find(s => s.id === shiftId);
+      const shift = safeShifts.find(s => s.id === shiftId);
       
       // Defensive check for shift.color availability
       let baseColor = 'bg-white';
@@ -90,7 +95,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       if (!shiftIdRaw || shiftIdRaw === 'OFF') return '-';
       
       const shiftId = shiftIdRaw.replace('_HALF', '');
-      const shift = shifts.find(s => s.id === shiftId);
+      const shift = safeShifts.find(s => s.id === shiftId);
       
       let code = shift && shift.code ? shift.code : '?';
       if (shiftIdRaw.includes('_HALF')) {
@@ -116,7 +121,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
   };
 
   const handleCellClick = (empId: string, date: Date) => {
-      if (!shifts || shifts.length === 0) {
+      if (!safeShifts || safeShifts.length === 0) {
           alert("Vui lòng cấu hình ít nhất một ca làm việc trước khi phân ca.");
           return;
       }
@@ -128,17 +133,17 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       let nextShiftId = '';
       if (!currentShiftId || currentShiftId === 'OFF') {
           // Default to first shift if current is empty/OFF
-          nextShiftId = shifts[0].id; 
+          nextShiftId = safeShifts[0].id; 
       } else {
-          const idx = shifts.findIndex(s => s.id === currentShiftId);
+          const idx = safeShifts.findIndex(s => s.id === currentShiftId);
           // If current shift is last in list or not found (deleted?), go to OFF
-          if (idx === -1 || idx === shifts.length - 1) nextShiftId = 'OFF';
-          else nextShiftId = shifts[idx + 1].id;
+          if (idx === -1 || idx === safeShifts.length - 1) nextShiftId = 'OFF';
+          else nextShiftId = safeShifts[idx + 1].id;
       }
 
       // Update parent state
       const newEntry: ShiftAssignment = { employeeId: empId, date: dateStr, shiftId: nextShiftId };
-      const otherSchedules = schedules.filter(s => !(s.employeeId === empId && s.date === dateStr));
+      const otherSchedules = safeSchedules.filter(s => !(s.employeeId === empId && s.date === dateStr));
       onUpdateSchedule([...otherSchedules, newEntry]);
   };
 
@@ -147,7 +152,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       if (!window.confirm(`Bạn có chắc chắn muốn xóa toàn bộ phân ca thủ công trong tháng ${monthStr}?\n\nHệ thống sẽ quay về sử dụng Lịch làm việc mặc định của từng nhân viên.`)) return;
 
       // Keep assignments that DO NOT start with this month string
-      const newAssignments = schedules.filter(s => !s.date.startsWith(monthStr));
+      const newAssignments = safeSchedules.filter(s => !s.date.startsWith(monthStr));
       onUpdateSchedule(newAssignments);
       alert("Đã đặt lại lịch về mặc định.");
   };
@@ -160,7 +165,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
   const handleDownloadTemplate = () => {
     const dateHeaders = daysInMonth.map(d => d.toISOString().split('T')[0]);
     const headers = ['Mã NV', 'Tên NV', ...dateHeaders];
-    const body = employees.map(emp => {
+    const body = safeEmployees.map(emp => {
         const rowData = [emp.code, emp.name];
         dateHeaders.forEach(dateStr => {
             const shiftId = getShiftForCell(emp.id, new Date(dateStr));
@@ -196,12 +201,12 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
                     if (data.length < 2) return;
 
                     const headers = data[0];
-                    const newAssignments: ShiftAssignment[] = [...schedules];
+                    const newAssignments: ShiftAssignment[] = [...safeSchedules];
                     let count = 0;
 
                     data.slice(1).forEach(row => {
                         const empCode = row[0];
-                        const emp = employees.find(e => e.code === String(empCode).trim());
+                        const emp = safeEmployees.find(e => e.code === String(empCode).trim());
                         
                         if (emp) {
                             for (let i = 2; i < row.length; i++) {
@@ -217,7 +222,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
                                     } else {
                                         // Remove (1/2) suffix if present during import matching
                                         const cleanCode = shiftCode.replace(' (1/2)', '').trim();
-                                        const shift = shifts.find(s => s.code.toUpperCase() === cleanCode);
+                                        const shift = safeShifts.find(s => s.code.toUpperCase() === cleanCode);
                                         if (shift) shiftId = shift.id;
                                     }
 
@@ -302,7 +307,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
                      <button onClick={handleNextMonth} className="p-1 hover:bg-slate-200 rounded"><ChevronRight /></button>
                  </div>
                  <div className="hidden md:flex gap-4 text-xs">
-                     {shifts.map(s => (
+                     {safeShifts.map(s => (
                          <div key={s.id} className="flex items-center gap-1">
                              <div className={`w-3 h-3 rounded ${s.color ? s.color.split(' ')[0] : 'bg-slate-200'}`}></div>
                              <span>{s.code}: {s.startTime}-{s.endTime}</span>
@@ -342,7 +347,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
                          </tr>
                      </thead>
                      <tbody className="divide-y divide-slate-100 text-xs">
-                         {employees.map(emp => (
+                         {safeEmployees.map(emp => (
                              <tr key={emp.id}>
                                  <td className="sticky left-0 z-10 bg-white border-r border-slate-200 p-2 font-medium text-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                      <div>{emp.name}</div>

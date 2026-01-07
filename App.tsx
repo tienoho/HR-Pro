@@ -14,7 +14,8 @@ import {
   CalendarDays,
   FileText,
   Trash2,
-  PartyPopper
+  PartyPopper,
+  AlertTriangle
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import ShiftConfig from './components/ShiftConfig';
@@ -42,11 +43,22 @@ const KEY_SCHEDULES = 'hr_pro_schedules';
 const KEY_REQUESTS = 'hr_pro_requests';
 const KEY_HOLIDAYS = 'hr_pro_holidays';
 
-// Helper to load data with fallback
+// Helper to load data with robust error handling and type checking
 const loadData = <T,>(key: string, fallback: T): T => {
     try {
         const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : fallback;
+        if (!item) return fallback;
+        
+        const parsed = JSON.parse(item);
+        
+        // Safety check: If fallback is an array, ensure parsed data is also an array
+        // This prevents crashes if localStorage contains corrupted object data where an array is expected
+        if (Array.isArray(fallback) && !Array.isArray(parsed)) {
+            console.warn(`Data mismatch for ${key}: expected Array, got ${typeof parsed}. Resetting to fallback.`);
+            return fallback;
+        }
+        
+        return parsed;
     } catch (e) {
         console.error(`Error loading key ${key}`, e);
         return fallback;
@@ -56,6 +68,7 @@ const loadData = <T,>(key: string, fallback: T): T => {
 const App: React.FC = () => {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -80,8 +93,23 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem(KEY_HOLIDAYS, JSON.stringify(holidays)); }, [holidays]);
 
   // Derived State: Timesheet
+  // Wrapped in try-catch to prevent white-screen if data is malformed
   const timesheetData = useMemo(() => {
-      return calculateTimesheet(employees, shifts, logs, schedules, requests, holidays, viewDate);
+      try {
+          // Double ensure inputs are arrays to satisfy TS and runtime safety
+          const safeEmployees = Array.isArray(employees) ? employees : [];
+          const safeShifts = Array.isArray(shifts) ? shifts : [];
+          const safeLogs = Array.isArray(logs) ? logs : [];
+          const safeSchedules = Array.isArray(schedules) ? schedules : [];
+          const safeRequests = Array.isArray(requests) ? requests : [];
+          const safeHolidays = Array.isArray(holidays) ? holidays : [];
+
+          return calculateTimesheet(safeEmployees, safeShifts, safeLogs, safeSchedules, safeRequests, safeHolidays, viewDate);
+      } catch (error) {
+          console.error("CRITICAL ERROR: Failed to calculate timesheet", error);
+          // Do not crash the app, return empty array and let the UI handle it
+          return [];
+      }
   }, [employees, shifts, logs, schedules, requests, holidays, viewDate]);
 
   // Auth Handlers
@@ -99,7 +127,7 @@ const App: React.FC = () => {
   };
 
   const handleResetData = () => {
-      if(window.confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu và quay về mặc định? Hành động này không thể hoàn tác.')) {
+      if(window.confirm('CẢNH BÁO: Hành động này sẽ XÓA TOÀN BỘ dữ liệu hiện tại và khôi phục về dữ liệu mẫu ban đầu. \n\nBạn có chắc chắn không?')) {
           localStorage.clear();
           window.location.reload();
       }
@@ -129,69 +157,83 @@ const App: React.FC = () => {
       }
   };
 
+  // Error Boundary Wrapper for Content
   const renderContent = () => {
-    switch (currentView) {
-      case 'dashboard':
-        return <Dashboard timesheetData={timesheetData} employees={employees} />;
-      case 'employees':
-        return (
-            <EmployeeManager 
-                employees={employees} 
-                shifts={shifts}
-                onAdd={handleAddEmployee}
-                onUpdate={handleUpdateEmployee}
-                onDelete={handleDeleteEmployee}
+    try {
+        switch (currentView) {
+        case 'dashboard':
+            return <Dashboard timesheetData={timesheetData} employees={employees} />;
+        case 'employees':
+            return (
+                <EmployeeManager 
+                    employees={employees} 
+                    shifts={shifts}
+                    onAdd={handleAddEmployee}
+                    onUpdate={handleUpdateEmployee}
+                    onDelete={handleDeleteEmployee}
+                />
+            );
+        case 'shifts':
+            return (
+            <ShiftConfig 
+                shifts={shifts} 
+                onAddShift={handleAddShift} 
+                onUpdateShift={handleUpdateShift}
+                onDeleteShift={handleDeleteShift}
             />
-        );
-      case 'shifts':
+            );
+        case 'scheduler':
+            return (
+                <ShiftScheduler 
+                    employees={employees}
+                    shifts={shifts}
+                    schedules={schedules}
+                    requests={requests}
+                    holidays={holidays}
+                    onUpdateSchedule={handleUpdateSchedule}
+                />
+            );
+        case 'requests':
+            return (
+                <RequestManager 
+                    requests={requests}
+                    employees={employees}
+                    onUpdateRequests={handleUpdateRequests}
+                />
+            );
+        case 'holidays':
+            return (
+                <HolidayManager 
+                    holidays={holidays}
+                    onUpdateHolidays={handleUpdateHolidays}
+                />
+            );
+        case 'import':
+            return <ImportWizard onImportLogs={handleImportLogs} />; 
+        case 'rawdata':
+            return (
+                <RawDataView 
+                    logs={logs}
+                    employees={employees}
+                    onAddLog={handleAddLog}
+                />
+            );
+        case 'timesheet':
+            return <TimesheetView data={timesheetData} />;
+        default:
+            return <Dashboard timesheetData={timesheetData} employees={employees} />;
+        }
+    } catch (err) {
+        console.error("View Render Error:", err);
         return (
-          <ShiftConfig 
-            shifts={shifts} 
-            onAddShift={handleAddShift} 
-            onUpdateShift={handleUpdateShift}
-            onDeleteShift={handleDeleteShift}
-          />
+            <div className="p-10 text-center">
+                <div className="bg-red-50 text-red-600 p-6 rounded-xl border border-red-200 inline-block">
+                    <AlertTriangle size={48} className="mx-auto mb-4" />
+                    <h3 className="text-xl font-bold mb-2">Đã xảy ra lỗi hiển thị</h3>
+                    <p>Vui lòng thử tải lại trang hoặc Reset dữ liệu nếu lỗi vẫn tiếp diễn.</p>
+                </div>
+            </div>
         );
-      case 'scheduler':
-        return (
-            <ShiftScheduler 
-                employees={employees}
-                shifts={shifts}
-                schedules={schedules}
-                requests={requests}
-                holidays={holidays}
-                onUpdateSchedule={handleUpdateSchedule}
-            />
-        );
-      case 'requests':
-        return (
-            <RequestManager 
-                requests={requests}
-                employees={employees}
-                onUpdateRequests={handleUpdateRequests}
-            />
-        );
-      case 'holidays':
-        return (
-            <HolidayManager 
-                holidays={holidays}
-                onUpdateHolidays={handleUpdateHolidays}
-            />
-        );
-      case 'import':
-        return <ImportWizard onImportLogs={handleImportLogs} />; 
-      case 'rawdata':
-        return (
-            <RawDataView 
-                logs={logs}
-                employees={employees}
-                onAddLog={handleAddLog}
-            />
-        );
-      case 'timesheet':
-        return <TimesheetView data={timesheetData} />;
-      default:
-        return <Dashboard timesheetData={timesheetData} employees={employees} />;
     }
   };
 

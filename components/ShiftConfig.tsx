@@ -169,7 +169,7 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
                 </div>
                 <div className="flex justify-between gap-1">
                     {dayLabels.map(d => {
-                        const isSelected = currentShift.workDays?.includes(d.v);
+                        const isSelected = (currentShift.workDays || []).includes(d.v);
                         return (
                             <button 
                                 key={d.v}
@@ -185,12 +185,12 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
                     <input 
                         type="checkbox" 
                         id="halfSat"
-                        disabled={!currentShift.workDays?.includes(6)}
+                        disabled={!(currentShift.workDays || []).includes(6)}
                         checked={currentShift.isSaturdayHalfDay || false}
                         onChange={(e) => setCurrentShift({...currentShift, isSaturdayHalfDay: e.target.checked})}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <label htmlFor="halfSat" className={`text-sm select-none ${!currentShift.workDays?.includes(6) ? 'text-slate-400' : 'text-slate-700'}`}>
+                    <label htmlFor="halfSat" className={`text-sm select-none ${!(currentShift.workDays || []).includes(6) ? 'text-slate-400' : 'text-slate-700'}`}>
                         Thứ 7 chỉ làm nửa ngày (Kết thúc 12:00)
                     </label>
                 </div>
@@ -274,7 +274,7 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {shifts.map((shift) => (
                 <div key={shift.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
-                    <div className={`h-2 w-full ${shift.color.split(' ')[0].replace('bg-', 'bg-') || 'bg-blue-500'}`}></div>
+                    <div className={`h-2 w-full ${(shift.color || 'bg-blue-500').split(' ')[0].replace('bg-', 'bg-')}`}></div>
                     <div className="p-6">
                         <div className="flex justify-between items-start mb-4">
                             <div>
@@ -296,8 +296,10 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
                             {/* Visual Week Indicators */}
                             <div className="flex gap-1 mt-2">
                                 {dayLabels.map(d => {
-                                    // Handle missing workDays property (for migration)
-                                    const isActive = (shift.workDays || [1,2,3,4,5]).includes(d.v);
+                                    // Handle missing workDays property (for migration from old data)
+                                    // Use explicit check to prevent crash on undefined
+                                    const workDaysSafe = Array.isArray(shift.workDays) ? shift.workDays : [1,2,3,4,5];
+                                    const isActive = workDaysSafe.includes(d.v);
                                     const isHalfDay = d.v === 6 && shift.isSaturdayHalfDay && isActive;
                                     return (
                                         <div key={d.v} className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${isActive ? (isHalfDay ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'bg-blue-100 text-blue-600 border border-blue-200') : 'bg-slate-50 text-slate-300'}`}>

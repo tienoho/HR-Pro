@@ -40,7 +40,19 @@ const getShiftDurationHours = (shift: Shift): number => {
     if (shift.breakStart && shift.breakEnd) {
         let bStart = timeToMinutes(shift.breakStart);
         let bEnd = timeToMinutes(shift.breakEnd);
-        if (bEnd < bStart) bEnd += 24 * 60;
+        
+        // FIX: Overnight break logic
+        // If shift is overnight (e.g., 20:00 - 05:00) and break is (01:00 - 02:00)
+        // We must align the break window to the shift window timeline
+        
+        // If bStart is less than start AND shift is overnight, implies break is on the next day
+        if (shift.isOvernight && bStart < start) {
+             bStart += 24 * 60;
+             bEnd += 24 * 60;
+        } else if (bEnd < bStart) {
+             // Standard break crossing midnight (e.g. 23:30 -> 00:30)
+             bEnd += 24 * 60;
+        }
         
         // Check if break is within shift
         if (bStart >= start && bEnd <= end) {
@@ -60,31 +72,46 @@ export const calculateTimesheet = (
   holidays: Holiday[], 
   viewMonth: Date 
 ): TimesheetRow[] => {
+  // --- DEFENSIVE CHECKS ---
+  // 1. Validate inputs are arrays
+  if (!Array.isArray(employees) || !Array.isArray(shifts) || !Array.isArray(logs) || !Array.isArray(schedules) || !Array.isArray(requests) || !Array.isArray(holidays)) {
+      console.warn("Invalid input passed to calculateTimesheet");
+      return [];
+  }
+
+  // 2. Filter out potential null/undefined items in arrays
+  const validEmployees = employees.filter(e => e && e.id);
+  const validShifts = shifts.filter(s => s && s.id);
+  const validLogs = logs.filter(l => l && l.timestamp);
+  const validSchedules = schedules.filter(s => s && s.employeeId);
+  const validRequests = requests.filter(r => r && r.employeeId);
+  const validHolidays = holidays.filter(h => h && h.date);
+
   const year = viewMonth.getFullYear();
   const monthIdx = viewMonth.getMonth(); // 0-indexed
   const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
 
   // Pre-process logs
-  const processedLogs = logs
+  const processedLogs = validLogs
     .filter(l => !l.isIgnored && l.timestamp)
     .map(l => ({ ...l, dateObj: parseLogTime(l.timestamp) }))
     .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
-  // REFACTORED: Centralized Logic to determine Shift
+  // Centralized Logic to determine Shift
   const getShiftForDate = (emp: Employee, dateStr: string, dateObj: Date): Shift | null => {
     let rawShift: Shift | undefined;
     const dayOfWeek = dateObj.getDay(); // 0=Sun, 6=Sat
 
     // 1. Check for specific assignment override (Manual Schedule)
-    const assignment = schedules.find(s => s.employeeId === emp.id && s.date === dateStr);
+    const assignment = validSchedules.find(s => s.employeeId === emp.id && s.date === dateStr);
     
     if (assignment) {
       if (assignment.shiftId === 'OFF') return null;
-      rawShift = shifts.find(s => s.id === assignment.shiftId);
+      rawShift = validShifts.find(s => s.id === assignment.shiftId);
     } else {
       // 2. Fallback to Default Shift based on WorkDays config
       if (emp.defaultShiftId) {
-          const defaultShift = shifts.find(s => s.id === emp.defaultShiftId);
+          const defaultShift = validShifts.find(s => s.id === emp.defaultShiftId);
           if (defaultShift) {
               const workDays = defaultShift.workDays || [1,2,3,4,5]; // Fallback
               // Only apply workDays filter if it's a default assignment
@@ -98,9 +125,7 @@ export const calculateTimesheet = (
     if (!rawShift) return null;
 
     // 3. UNIFIED: Handle Saturday Half Day Logic
-    // This now applies to BOTH Manual Assignments and Default Shifts
     if (dayOfWeek === 6 && rawShift.isSaturdayHalfDay && rawShift.startTime) {
-        // Logic: Only apply 12:00 cutoff if the shift starts in the morning.
         const startMins = timeToMinutes(rawShift.startTime);
         const noonMins = timeToMinutes('12:00');
 
@@ -113,8 +138,6 @@ export const calculateTimesheet = (
                 name: (rawShift.name || '') + ' (1/2)'
             };
         } else {
-            // Afternoon shift on a "Half Day Saturday" config -> Implicitly OFF
-            // UNLESS it was manually assigned. If manually assigned, we trust manual assignment.
             if (assignment) {
                 return rawShift;
             }
@@ -125,7 +148,7 @@ export const calculateTimesheet = (
     return rawShift; 
   };
 
-  return employees.map(emp => {
+  return validEmployees.map(emp => {
     const records: { [date: string]: DailyRecord } = {};
     const summary = { totalWorkHours: 0, totalOT: 0, totalLate: 0, totalAbsent: 0, totalLeaves: 0, totalLeaveHours: 0, totalHolidays: 0 };
 
@@ -136,10 +159,10 @@ export const calculateTimesheet = (
       const shift = getShiftForDate(emp, dateStr, currentDayDate);
       
       // Check Holiday
-      const isHoliday = holidays.some(h => h.date === dateStr);
+      const isHoliday = validHolidays.some(h => h.date === dateStr);
 
       // Range Check for Requests
-      const approvedRequests = requests.filter(r => 
+      const approvedRequests = validRequests.filter(r => 
         r.employeeId === emp.id && 
         r.status === RequestStatus.Approved && 
         dateStr >= r.startDate && 
@@ -312,16 +335,20 @@ export const calculateTimesheet = (
                               const beH = parseInt(beParts[0], 10);
                               const beM = parseInt(beParts[1], 10);
                               
-                              const breakStart = new Date(shiftStartDateTime);
+                              let breakStart = new Date(shiftStartDateTime);
                               breakStart.setHours(bsH, bsM, 0, 0);
                               
-                              const breakEnd = new Date(shiftStartDateTime);
+                              let breakEnd = new Date(shiftStartDateTime);
                               breakEnd.setHours(beH, beM, 0, 0);
                               
-                              if (breakEnd < breakStart) breakEnd.setDate(breakEnd.getDate() + 1);
-                              else if (shift.isOvernight && bsH < sH) {
-                                   breakStart.setDate(breakStart.getDate() + 1);
-                                   breakEnd.setDate(breakEnd.getDate() + 1);
+                              // Logic Fix for Overnight Break deduction
+                              if (shift.isOvernight && (bsH * 60 + bsM) < (sH * 60 + sM)) {
+                                  // Break starts next day
+                                  breakStart.setDate(breakStart.getDate() + 1);
+                                  breakEnd.setDate(breakEnd.getDate() + 1);
+                              } else if ((beH * 60 + beM) < (bsH * 60 + bsM)) {
+                                  // Break crosses midnight
+                                  breakEnd.setDate(breakEnd.getDate() + 1);
                               }
 
                               const overlapStart = new Date(Math.max(inLog.dateObj.getTime(), breakStart.getTime()));

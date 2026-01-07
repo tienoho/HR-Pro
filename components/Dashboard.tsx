@@ -47,7 +47,10 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
       let missingPunch = 0;
       let lateList: {name: string, dept: string, minutes: number}[] = [];
 
+      if (!timesheetData || !Array.isArray(timesheetData)) return { late, absent, present, off, leave, holiday, missingPunch, lateList };
+
       timesheetData.forEach(row => {
+          if (!row || !row.records) return;
           const record = row.records[dateKey];
           if (!record) return;
 
@@ -67,7 +70,7 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
           
           if (record.status.includes(AttendanceStatus.Late)) {
               late++;
-              lateList.push({ name: row.employee.name, dept: row.employee.department, minutes: record.lateMinutes });
+              lateList.push({ name: row.employee?.name || 'Unknown', dept: row.employee?.department || 'Unknown', minutes: record.lateMinutes });
           }
           
           // Present includes Valid, Late, or Partial Leave (if they checked in)
@@ -84,6 +87,8 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
   // 2. Prepare Chart Data (Last 7 Days)
   const barChartData = useMemo(() => {
       const data = [];
+      if (!timesheetData || !Array.isArray(timesheetData)) return [];
+
       for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
@@ -93,10 +98,12 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
           let dayOT = 0;
           
           timesheetData.forEach(row => {
-              const rec = row.records[dKey];
-              if (rec) {
-                  if (rec.status.includes(AttendanceStatus.Late)) dayLate++;
-                  dayOT += rec.otHours;
+              if (row && row.records) {
+                  const rec = row.records[dKey];
+                  if (rec) {
+                      if (rec.status.includes(AttendanceStatus.Late)) dayLate++;
+                      dayOT += rec.otHours;
+                  }
               }
           });
 
@@ -117,7 +124,10 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
       let countOff = 0;
       let countHoliday = 0;
 
+      if (!timesheetData || !Array.isArray(timesheetData)) return [];
+
       timesheetData.forEach(row => {
+          if (!row || !row.records) return;
           const record = row.records[dateKey];
           if(!record) return;
 
@@ -146,7 +156,7 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
       ].filter(d => d.value > 0);
   }, [timesheetData, dateKey]);
 
-  const activeEmployees = employees.filter(e => e.status === 'ACTIVE').length;
+  const activeEmployees = Array.isArray(employees) ? employees.filter(e => e.status === 'ACTIVE').length : 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
