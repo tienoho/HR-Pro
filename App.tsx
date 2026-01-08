@@ -15,7 +15,8 @@ import {
   FileText,
   Trash2,
   PartyPopper,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import ShiftConfig from './components/ShiftConfig';
@@ -28,47 +29,17 @@ import RequestManager from './components/RequestManager';
 import HolidayManager from './components/HolidayManager';
 import Login from './components/Login';
 
-import { MOCK_SHIFTS, MOCK_EMPLOYEES, MOCK_LOGS, MOCK_SCHEDULES } from './constants';
 import { Shift, Employee, AttendanceLog, ShiftAssignment, AttendanceRequest, Holiday } from './types';
 import { calculateTimesheet } from './utils/attendanceEngine';
+import { storage } from './services/storage';
 
 // Simple navigation state
 type View = 'dashboard' | 'employees' | 'shifts' | 'scheduler' | 'requests' | 'holidays' | 'import' | 'rawdata' | 'timesheet';
 
-// --- STORAGE KEYS ---
-const KEY_EMPLOYEES = 'hr_pro_employees';
-const KEY_SHIFTS = 'hr_pro_shifts';
-const KEY_LOGS = 'hr_pro_logs';
-const KEY_SCHEDULES = 'hr_pro_schedules';
-const KEY_REQUESTS = 'hr_pro_requests';
-const KEY_HOLIDAYS = 'hr_pro_holidays';
-
-// Helper to load data with robust error handling and type checking
-const loadData = <T,>(key: string, fallback: T): T => {
-    try {
-        const item = localStorage.getItem(key);
-        if (!item) return fallback;
-        
-        const parsed = JSON.parse(item);
-        
-        // Safety check: If fallback is an array, ensure parsed data is also an array
-        // This prevents crashes if localStorage contains corrupted object data where an array is expected
-        if (Array.isArray(fallback) && !Array.isArray(parsed)) {
-            console.warn(`Data mismatch for ${key}: expected Array, got ${typeof parsed}. Resetting to fallback.`);
-            return fallback;
-        }
-        
-        return parsed;
-    } catch (e) {
-        console.error(`Error loading key ${key}`, e);
-        return fallback;
-    }
-};
-
 const App: React.FC = () => {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -76,41 +47,57 @@ const App: React.FC = () => {
   // Global Context State
   const [viewDate, setViewDate] = useState(new Date());
 
-  // Central State Management with Persistence
-  const [shifts, setShifts] = useState<Shift[]>(() => loadData(KEY_SHIFTS, MOCK_SHIFTS));
-  const [employees, setEmployees] = useState<Employee[]>(() => loadData(KEY_EMPLOYEES, MOCK_EMPLOYEES));
-  const [logs, setLogs] = useState<AttendanceLog[]>(() => loadData(KEY_LOGS, MOCK_LOGS));
-  const [schedules, setSchedules] = useState<ShiftAssignment[]>(() => loadData(KEY_SCHEDULES, MOCK_SCHEDULES));
-  const [requests, setRequests] = useState<AttendanceRequest[]>(() => loadData(KEY_REQUESTS, []));
-  const [holidays, setHolidays] = useState<Holiday[]>(() => loadData(KEY_HOLIDAYS, []));
+  // Central State Management
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [logs, setLogs] = useState<AttendanceLog[]>([]);
+  const [schedules, setSchedules] = useState<ShiftAssignment[]>([]);
+  const [requests, setRequests] = useState<AttendanceRequest[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
 
-  // --- PERSISTENCE EFFECTS ---
-  useEffect(() => { localStorage.setItem(KEY_SHIFTS, JSON.stringify(shifts)); }, [shifts]);
-  useEffect(() => { localStorage.setItem(KEY_EMPLOYEES, JSON.stringify(employees)); }, [employees]);
-  useEffect(() => { localStorage.setItem(KEY_LOGS, JSON.stringify(logs)); }, [logs]);
-  useEffect(() => { localStorage.setItem(KEY_SCHEDULES, JSON.stringify(schedules)); }, [schedules]);
-  useEffect(() => { localStorage.setItem(KEY_REQUESTS, JSON.stringify(requests)); }, [requests]);
-  useEffect(() => { localStorage.setItem(KEY_HOLIDAYS, JSON.stringify(holidays)); }, [holidays]);
+  // --- INITIAL DATA LOAD ---
+  const fetchAllData = async () => {
+      setIsLoadingData(true);
+      try {
+          const [e, s, l, sch, r, h] = await Promise.all([
+              storage.getEmployees(),
+              storage.getShifts(),
+              storage.getLogs(),
+              storage.getSchedules(),
+              storage.getRequests(),
+              storage.getHolidays()
+          ]);
+          
+          setEmployees(e);
+          setShifts(s);
+          setLogs(l);
+          setSchedules(sch);
+          setRequests(r);
+          setHolidays(h);
+      } catch (error) {
+          console.error("Failed to load initial data", error);
+          alert("Lỗi tải dữ liệu hệ thống. Vui lòng thử lại.");
+      } finally {
+          setIsLoadingData(false);
+      }
+  };
+
+  useEffect(() => {
+      if (isAuthenticated) {
+          fetchAllData();
+      }
+  }, [isAuthenticated]);
 
   // Derived State: Timesheet
-  // Wrapped in try-catch to prevent white-screen if data is malformed
   const timesheetData = useMemo(() => {
       try {
-          // Double ensure inputs are arrays to satisfy TS and runtime safety
-          const safeEmployees = Array.isArray(employees) ? employees : [];
-          const safeShifts = Array.isArray(shifts) ? shifts : [];
-          const safeLogs = Array.isArray(logs) ? logs : [];
-          const safeSchedules = Array.isArray(schedules) ? schedules : [];
-          const safeRequests = Array.isArray(requests) ? requests : [];
-          const safeHolidays = Array.isArray(holidays) ? holidays : [];
-
-          return calculateTimesheet(safeEmployees, safeShifts, safeLogs, safeSchedules, safeRequests, safeHolidays, viewDate);
+          if (isLoadingData) return [];
+          return calculateTimesheet(employees, shifts, logs, schedules, requests, holidays, viewDate);
       } catch (error) {
-          console.error("CRITICAL ERROR: Failed to calculate timesheet", error);
-          // Do not crash the app, return empty array and let the UI handle it
+          console.error("Timesheet Calc Error", error);
           return [];
       }
-  }, [employees, shifts, logs, schedules, requests, holidays, viewDate]);
+  }, [employees, shifts, logs, schedules, requests, holidays, viewDate, isLoadingData]);
 
   // Auth Handlers
   const handleLogin = (u: string, p: string) => {
@@ -123,33 +110,69 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
       setIsAuthenticated(false);
-      setCurrentView('dashboard'); // Reset view
+      setCurrentView('dashboard');
   };
 
-  const handleResetData = () => {
+  const handleResetData = async () => {
       if(window.confirm('CẢNH BÁO: Hành động này sẽ XÓA TOÀN BỘ dữ liệu hiện tại và khôi phục về dữ liệu mẫu ban đầu. \n\nBạn có chắc chắn không?')) {
-          localStorage.clear();
-          window.location.reload();
+          setIsLoadingData(true);
+          await storage.clearAllData();
+          await fetchAllData(); // Reload
       }
   };
 
-  // Handlers
-  const handleAddShift = (newShift: Shift) => setShifts(prev => [...prev, newShift]);
-  const handleUpdateShift = (updatedShift: Shift) => setShifts(prev => prev.map(s => s.id === updatedShift.id ? updatedShift : s));
-  const handleDeleteShift = (id: string) => setShifts(prev => prev.filter(s => s.id !== id));
+  // --- ASYNC HANDLERS (Connect to StorageService) ---
+  
+  const handleAddShift = async (newShift: Shift) => {
+      const saved = await storage.saveShift(newShift);
+      setShifts(prev => [...prev, saved]);
+  };
+  const handleUpdateShift = async (updatedShift: Shift) => {
+      await storage.saveShift(updatedShift);
+      setShifts(prev => prev.map(s => s.id === updatedShift.id ? updatedShift : s));
+  };
+  const handleDeleteShift = async (id: string) => {
+      await storage.deleteShift(id);
+      setShifts(prev => prev.filter(s => s.id !== id));
+  };
 
-  const handleAddEmployee = (emp: Employee) => setEmployees(prev => [...prev, emp]);
-  const handleUpdateEmployee = (emp: Employee) => setEmployees(prev => prev.map(e => e.id === emp.id ? emp : e));
-  const handleDeleteEmployee = (id: string) => setEmployees(prev => prev.filter(e => e.id !== id));
+  const handleAddEmployee = async (emp: Employee) => {
+      const saved = await storage.saveEmployee(emp);
+      setEmployees(prev => [...prev, saved]);
+  };
+  const handleUpdateEmployee = async (emp: Employee) => {
+      await storage.saveEmployee(emp);
+      setEmployees(prev => prev.map(e => e.id === emp.id ? emp : e));
+  };
+  const handleDeleteEmployee = async (id: string) => {
+      await storage.deleteEmployee(id);
+      setEmployees(prev => prev.filter(e => e.id !== id));
+  };
 
-  const handleAddLog = (log: AttendanceLog) => setLogs(prev => [...prev, log]);
-  const handleImportLogs = (newLogs: AttendanceLog[]) => {
-      setLogs(prev => [...prev, ...newLogs]);
+  const handleAddLog = async (log: AttendanceLog) => {
+      await storage.addSingleLog(log);
+      setLogs(prev => [...prev, log]);
   };
   
-  const handleUpdateSchedule = (newSchedules: ShiftAssignment[]) => setSchedules(newSchedules);
-  const handleUpdateRequests = (newRequests: AttendanceRequest[]) => setRequests(newRequests);
-  const handleUpdateHolidays = (newHolidays: Holiday[]) => setHolidays(newHolidays);
+  const handleImportLogs = async (newLogs: AttendanceLog[]) => {
+      setIsLoadingData(true); // Large operation
+      await storage.saveLogs(newLogs);
+      setLogs(prev => [...prev, ...newLogs]);
+      setIsLoadingData(false);
+  };
+  
+  const handleUpdateSchedule = async (newSchedules: ShiftAssignment[]) => {
+      await storage.saveSchedules(newSchedules);
+      setSchedules(newSchedules);
+  };
+  const handleUpdateRequests = async (newRequests: AttendanceRequest[]) => {
+      await storage.saveRequests(newRequests);
+      setRequests(newRequests);
+  };
+  const handleUpdateHolidays = async (newHolidays: Holiday[]) => {
+      await storage.saveHolidays(newHolidays);
+      setHolidays(newHolidays);
+  };
 
   const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.value) {
@@ -157,8 +180,17 @@ const App: React.FC = () => {
       }
   };
 
-  // Error Boundary Wrapper for Content
+  // Render Content
   const renderContent = () => {
+    if (isLoadingData) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
+                <Loader2 size={48} className="animate-spin text-blue-600" />
+                <p className="font-medium animate-pulse">Đang đồng bộ dữ liệu hệ thống...</p>
+            </div>
+        );
+    }
+
     try {
         switch (currentView) {
         case 'dashboard':
@@ -239,7 +271,6 @@ const App: React.FC = () => {
 
   const monthInputValue = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`;
 
-  // --- Render Login if not authenticated ---
   if (!isAuthenticated) {
       return <Login onLogin={handleLogin} />;
   }
@@ -303,7 +334,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-40">
             <div className="flex items-center gap-4">
                 <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600">
@@ -343,7 +374,7 @@ const App: React.FC = () => {
             </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-6 bg-slate-100/50">
             {renderContent()}
         </div>
       </main>

@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { Users, AlertTriangle, CheckCircle, Clock, CalendarOff, PartyPopper, ChevronRight, ArrowUpRight } from 'lucide-react';
+import { Users, AlertTriangle, CheckCircle, Clock, CalendarOff, PartyPopper } from 'lucide-react';
 import { TimesheetRow, AttendanceStatus, Employee } from '../types';
 
 interface DashboardProps {
@@ -19,17 +19,15 @@ const COLORS = {
     holiday: '#ec4899', // pink-500
 };
 
-const StatCard = ({ title, value, subtext, icon: Icon, colorClass, gradient }: any) => (
-  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 flex items-start justify-between group">
+const StatCard = ({ title, value, subtext, icon: Icon, color }: any) => (
+  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
     <div>
-      <p className="text-slate-500 text-sm font-semibold mb-2 uppercase tracking-wide">{title}</p>
-      <h3 className="text-3xl font-bold text-slate-800 tracking-tight">{value}</h3>
-      <p className="text-xs text-slate-400 mt-2 font-medium flex items-center gap-1">
-          {subtext}
-      </p>
+      <p className="text-slate-500 text-sm font-medium mb-1">{title}</p>
+      <h3 className="text-2xl font-bold text-slate-800">{value}</h3>
+      <p className="text-xs text-slate-400 mt-1">{subtext}</p>
     </div>
-    <div className={`p-4 rounded-xl ${gradient} shadow-lg shadow-${colorClass}/20 group-hover:scale-110 transition-transform duration-300`}>
-      <Icon className="w-6 h-6 text-white" strokeWidth={2.5} />
+    <div className={`p-3 rounded-lg ${color}`}>
+      <Icon className="w-6 h-6 text-white" />
     </div>
   </div>
 );
@@ -161,47 +159,28 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
   const activeEmployees = Array.isArray(employees) ? employees.filter(e => e.status === 'ACTIVE').length : 0;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
-      {/* Welcome Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h2 className="text-2xl font-bold text-slate-800">Tổng quan hôm nay</h2>
-            <p className="text-slate-500 text-sm mt-1">{new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-        </div>
-        <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 shadow-sm flex items-center gap-2">
-                <CalendarOff size={16}/> Lịch nghỉ
-            </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm shadow-blue-500/30 flex items-center gap-2">
-                <ArrowUpRight size={16}/> Báo cáo nhanh
-            </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Hiện diện" 
           value={dailyStats.present} 
-          subtext={`${activeEmployees > 0 ? Math.round((dailyStats.present / activeEmployees) * 100) : 0}% Nhân sự`}
+          subtext={`${activeEmployees > 0 ? Math.round((dailyStats.present / activeEmployees) * 100) : 0}% Quân số`} 
           icon={CheckCircle} 
-          colorClass="green-500"
-          gradient="bg-gradient-to-br from-green-400 to-green-600"
+          color="bg-green-600" 
         />
         <StatCard 
-          title="Đi muộn"
+          title="Đi muộn hôm nay" 
           value={dailyStats.late} 
-          subtext={dailyStats.late > 0 ? "Cần nhắc nhở ngay" : "Không có ai đi muộn"}
+          subtext={dailyStats.late > 0 ? "Cần nhắc nhở" : "Rất tốt!"} 
           icon={Clock} 
-          colorClass="yellow-500"
-          gradient="bg-gradient-to-br from-yellow-400 to-yellow-600"
+          color="bg-yellow-500" 
         />
         <StatCard 
           title="Nghỉ phép" 
           value={dailyStats.leave} 
-          subtext="Đã được duyệt"
+          subtext="Đã duyệt" 
           icon={CalendarOff} 
-          colorClass="purple-500"
-          gradient="bg-gradient-to-br from-purple-400 to-purple-600"
+          color="bg-purple-500" 
         />
         {/* Dynamic Card based on Holiday status */}
         {dailyStats.holiday > 0 ? (
@@ -210,29 +189,24 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
                 value={dailyStats.holiday} 
                 subtext="Ngày lễ trong năm" 
                 icon={PartyPopper} 
-                colorClass="pink-500"
-                gradient="bg-gradient-to-br from-pink-400 to-pink-600"
+                color="bg-pink-500" 
             />
         ) : (
             <StatCard 
                 title="Vắng mặt" 
                 value={dailyStats.absent} 
-                subtext={`Chưa rõ lý do`}
+                subtext={`Cần kiểm tra`} 
                 icon={AlertTriangle} 
-                colorClass="red-500"
-                gradient="bg-gradient-to-br from-red-400 to-red-600"
+                color="bg-red-500" 
             />
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pie Chart */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-1 flex flex-col hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-slate-800">Tỷ lệ chấm công</h3>
-              <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded">Hôm nay</span>
-          </div>
-          <div className="h-72 flex-1">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-1 flex flex-col">
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Tỷ lệ hôm nay ({dateKey})</h3>
+          <div className="h-64 flex-1">
             {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -240,60 +214,45 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
                     data={pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={70}
-                    outerRadius={90}
-                    paddingAngle={3}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={2}
                     dataKey="value"
-                    stroke="none"
-                    cornerRadius={4}
                     >
                     {pieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                     </Pie>
-                    <Tooltip
-                        contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                        itemStyle={{fontSize: '12px', fontWeight: 600}}
-                    />
-                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '12px'}}/>
+                    <Tooltip />
+                    <Legend verticalAlign="bottom" height={36}/>
                 </PieChart>
                 </ResponsiveContainer>
             ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-400">
                     <Clock size={48} className="mb-2 opacity-50"/>
-                    <p>Chưa có dữ liệu chấm công</p>
+                    <p>Chưa có dữ liệu chấm công hôm nay</p>
                 </div>
             )}
           </div>
         </div>
 
         {/* Bar Chart */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-6">
-             <h3 className="text-lg font-bold text-slate-800">Xu hướng Đi muộn & OT</h3>
-             <select className="text-xs border-slate-200 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                 <option>7 ngày qua</option>
-                 <option>30 ngày qua</option>
-             </select>
-          </div>
-          <div className="h-72">
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-2">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Xu hướng 7 ngày qua</h3>
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={barChartData}
-                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                barGap={8}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} dy={10} />
-                <YAxis yAxisId="left" orientation="left" stroke="transparent" tick={{fontSize: 12, fill: '#64748b'}} label={{ value: 'Số người', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }}/>
-                <YAxis yAxisId="right" orientation="right" stroke="transparent" tick={{fontSize: 12, fill: '#64748b'}} label={{ value: 'Giờ', angle: 90, position: 'insideRight', fontSize: 10, fill: '#94a3b8' }}/>
-                <Tooltip
-                    cursor={{fill: '#f8fafc'}}
-                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                />
-                <Legend iconType="circle" wrapperStyle={{paddingTop: '20px'}}/>
-                <Bar yAxisId="left" dataKey="late" name="Số ca muộn" fill={COLORS.late} radius={[4, 4, 4, 4]} barSize={20} />
-                <Bar yAxisId="right" dataKey="ot" name="Giờ OT" fill={COLORS.ot} radius={[4, 4, 4, 4]} barSize={20} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tick={{fontSize: 12}} />
+                <YAxis yAxisId="left" orientation="left" stroke={COLORS.late} label={{ value: 'Số người muộn', angle: -90, position: 'insideLeft', fontSize: 10 }}/>
+                <YAxis yAxisId="right" orientation="right" stroke={COLORS.ot} label={{ value: 'Giờ OT', angle: 90, position: 'insideRight', fontSize: 10 }}/>
+                <Tooltip cursor={{fill: '#f8fafc'}} />
+                <Legend />
+                <Bar yAxisId="left" dataKey="late" name="Số ca muộn" fill={COLORS.late} radius={[4, 4, 0, 0]} barSize={30} />
+                <Bar yAxisId="right" dataKey="ot" name="Giờ OT" fill={COLORS.ot} radius={[4, 4, 0, 0]} barSize={30} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -301,56 +260,39 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
       </div>
       
       {/* Quick Actions / Recent Issues */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 text-yellow-600 rounded-lg">
-                    <AlertTriangle size={20} />
-                </div>
-                <div>
-                    <h3 className="text-lg font-bold text-slate-800">Cần chú ý hôm nay</h3>
-                    <p className="text-xs text-slate-500">Danh sách nhân viên đi muộn hoặc vắng mặt</p>
-                </div>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div className="flex items-center gap-2">
+                <AlertTriangle size={18} className="text-yellow-600"/>
+                <h3 className="text-lg font-bold text-slate-800">Danh sách Đi muộn hôm nay</h3>
             </div>
-            {dailyStats.lateList.length > 5 && (
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                    Xem tất cả <ChevronRight size={16}/>
-                </button>
-            )}
+            <span className="text-sm font-medium bg-red-100 text-red-700 px-2 py-1 rounded-full">{dailyStats.lateList.length} trường hợp</span>
         </div>
-        <div className="divide-y divide-slate-50 max-h-80 overflow-y-auto custom-scrollbar">
+        <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
             {dailyStats.lateList.length > 0 ? dailyStats.lateList.map((item, i) => (
-                <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm border border-slate-200">
+                <div key={i} className="px-6 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs">
                             {item.name.substring(0,2).toUpperCase()}
                         </div>
                         <div>
-                            <p className="font-semibold text-slate-800 text-sm group-hover:text-blue-600 transition-colors">{item.name}</p>
+                            <p className="font-medium text-slate-800 text-sm">{item.name}</p>
                             <p className="text-xs text-slate-500">{item.dept}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-6">
-                        <div className="text-right">
-                             <span className="block text-sm font-bold text-red-600">+{item.minutes} phút</span>
-                             <span className="text-[10px] text-slate-400">Thời gian trễ</span>
-                        </div>
-                        <button className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-md hover:bg-white bg-slate-50 text-slate-600 hover:text-blue-600 transition-all shadow-sm">
-                            Gửi nhắc nhở
-                        </button>
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm font-bold text-red-600">Trễ {item.minutes} phút</span>
+                        <button className="px-3 py-1 text-xs border border-slate-300 rounded hover:bg-white bg-slate-50 text-slate-700">Gửi nhắc nhở</button>
                     </div>
                 </div>
             )) : (
-                <div className="p-10 text-center text-slate-500 flex flex-col items-center">
-                    <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-4">
-                        <CheckCircle className="text-green-500" size={32} />
-                    </div>
-                    <p className="font-medium text-slate-800">Không có vi phạm!</p>
-                    <p className="text-sm text-slate-400 mt-1">Hôm nay mọi người đều tuân thủ giờ giấc.</p>
+                <div className="p-8 text-center text-slate-500">
+                    <CheckCircle className="mx-auto mb-2 text-green-500" size={32} />
+                    <p>Tuyệt vời! Hôm nay không có ai đi muộn.</p>
                 </div>
             )}
         </div>
-    </div>
+      </div>
     </div>
   );
 };
