@@ -29,11 +29,20 @@ const RawDataView: React.FC<RawDataViewProps> = ({ logs, employees, onAddLog }) 
 
   const getEmpByMachineId = (mid: string) => employees.find(e => e.timekeepingId === mid);
 
-  // Simple duplicate detection for UI visualization
-  // We keep the map here but remove the hardcoded sort, as we will sort dynamically later
+  // Improved duplicate detection: Mark subsequent logs with same ID+Timestamp as duplicate
   const processedLogs = useMemo(() => {
-    return logs.map((log, idx, arr) => {
-        const isDuplicate = arr.some((l, i) => i !== idx && l.timekeepingId === log.timekeepingId && l.timestamp === log.timestamp);
+    const seen = new Set<string>();
+    // We iterate through the logs in their original order (insertion order)
+    return logs.map((log) => {
+        const key = `${log.timekeepingId}|${log.timestamp}`;
+        let isDuplicate = false;
+        
+        if (seen.has(key)) {
+            isDuplicate = true;
+        } else {
+            seen.add(key);
+        }
+        
         return { ...log, isDuplicate };
     });
   }, [logs]);
@@ -192,15 +201,17 @@ const RawDataView: React.FC<RawDataViewProps> = ({ logs, employees, onAddLog }) 
                          {sortedLogs.map(log => {
                              const emp = getEmpByMachineId(log.timekeepingId);
                              return (
-                                 <tr key={log.id} className={`hover:bg-slate-50 transition-colors ${log.isDuplicate ? 'bg-slate-50 opacity-60' : ''}`}>
-                                     <td className="px-6 py-3 font-mono font-medium text-slate-700">
-                                         {log.timestamp}
+                                 <tr key={log.id} className={`hover:bg-slate-50 transition-colors ${log.isDuplicate ? 'bg-slate-50 text-slate-400' : ''}`}>
+                                     <td className="px-6 py-3 font-mono font-medium">
+                                         <div className={log.isDuplicate ? "line-through opacity-70" : "text-slate-700"}>{log.timestamp}</div>
                                      </td>
-                                     <td className="px-6 py-3 font-mono text-slate-500">{log.timekeepingId}</td>
+                                     <td className="px-6 py-3 font-mono">
+                                         <div className={log.isDuplicate ? "opacity-70" : "text-slate-500"}>{log.timekeepingId}</div>
+                                     </td>
                                      <td className="px-6 py-3">
                                          {emp ? (
-                                             <div className="flex items-center gap-2">
-                                                 <span className="font-medium text-blue-700">{emp.name}</span>
+                                             <div className={`flex items-center gap-2 ${log.isDuplicate ? "opacity-60" : ""}`}>
+                                                 <span className={`font-medium ${log.isDuplicate ? "" : "text-blue-700"}`}>{emp.name}</span>
                                                  <span className="text-xs bg-slate-100 px-1 rounded text-slate-500">{emp.code}</span>
                                              </div>
                                          ) : (
@@ -208,16 +219,29 @@ const RawDataView: React.FC<RawDataViewProps> = ({ logs, employees, onAddLog }) 
                                          )}
                                      </td>
                                      <td className="px-6 py-3">
-                                         <span className={`px-2 py-0.5 rounded text-xs border ${log.source === 'MACHINE' ? 'bg-purple-50 text-purple-700 border-purple-100' : log.source === 'MANUAL' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-orange-50 text-orange-700 border-orange-100'}`}>
+                                         <span className={`px-2 py-0.5 rounded text-xs border ${
+                                             log.isDuplicate 
+                                                ? 'bg-slate-100 border-slate-200 text-slate-500' 
+                                                : log.source === 'MACHINE' 
+                                                    ? 'bg-purple-50 text-purple-700 border-purple-100' 
+                                                    : log.source === 'MANUAL' 
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-100' 
+                                                        : 'bg-orange-50 text-orange-700 border-orange-100'
+                                         }`}>
                                              {log.source}
                                          </span>
                                      </td>
                                      <td className="px-6 py-3 text-slate-500">Check</td>
                                      <td className="px-6 py-3">
                                          {log.isDuplicate ? (
-                                             <span className="text-slate-400 text-xs font-medium">Duplicate</span>
+                                             <div className="flex items-center gap-1.5 text-orange-500 bg-orange-50 px-2 py-1 rounded-full w-fit">
+                                                 <AlertTriangle size={12} />
+                                                 <span className="text-xs font-medium">Duplicate</span>
+                                             </div>
                                          ) : (
-                                             <span className="text-green-600 text-xs font-bold">Valid</span>
+                                             <div className="flex items-center gap-1.5 text-green-700 bg-green-50 px-2 py-1 rounded-full w-fit">
+                                                 <span className="text-xs font-bold">Valid</span>
+                                             </div>
                                          )}
                                      </td>
                                  </tr>

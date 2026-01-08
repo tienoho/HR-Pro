@@ -102,6 +102,8 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
       };
       reader.readAsBinaryString(selectedFile);
     }
+    // Allow re-uploading the same file if needed by resetting input value
+    e.target.value = '';
   };
 
   const processImport = () => {
