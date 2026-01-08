@@ -34,7 +34,9 @@ const RawDataView: React.FC<RawDataViewProps> = ({ logs, employees, onAddLog }) 
     const seen = new Set<string>();
     // We iterate through the logs in their original order (insertion order)
     return logs.map((log) => {
-        const key = `${log.timekeepingId}|${log.timestamp}`;
+        // Normalize key by trimming timestamp to ensure accurate duplicate detection
+        const normalizedTimestamp = log.timestamp ? String(log.timestamp).trim() : '';
+        const key = `${log.timekeepingId}|${normalizedTimestamp}`;
         let isDuplicate = false;
         
         if (seen.has(key)) {

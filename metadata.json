@@ -1,5 +1,5 @@
 {
-  "name": "HR Pro - Time & Attendance",
+  "name": "hr-pro-time-attendance",
   "description": "A comprehensive Time & Attendance Management System for HR professionals to manage shifts, import data, and calculate timesheets.",
   "requestFramePermissions": []
 }
