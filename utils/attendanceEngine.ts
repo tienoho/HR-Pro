@@ -54,6 +54,15 @@ const getShiftDurationHours = (shift: Shift): number => {
              bEnd += 24 * 60;
         }
         
+        // Try to fit break into shift window
+        if (bStart < start) {
+            // Potential next day break (e.g. Break 02:00, Shift Start 22:00)
+            if (bStart + 1440 <= end) {
+                 bStart += 1440;
+                 bEnd += 1440;
+            }
+        }
+
         // Check if break is within shift
         if (bStart >= start && bEnd <= end) {
             durationMins -= (bEnd - bStart);
