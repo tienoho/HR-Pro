@@ -16,7 +16,6 @@ import {
   CreateShiftRequest,
   CreateAttendanceLogRequest,
   CreateHolidayRequest,
-  CreateHolidayRequest,
   ScheduleAssignmentApiModel,
   AttendanceRequestApiModel
 } from '../types/api';
@@ -105,7 +104,6 @@ const mapApiLogToLocal = (log: AttendanceLogApiModel): AttendanceLog => ({
 const mapApiHolidayToLocal = (holiday: HolidayApiModel): Holiday => ({
   id: holiday.id,
   date: holiday.date,
-  name: holiday.name,
   name: holiday.name,
 });
 
@@ -342,11 +340,26 @@ export const storage = {
     }
 
     try {
-      // Try bulk endpoint
-      await apiClient.post('/schedules/bulk', { assignments: schedules });
-    } catch {
-      // Fallback to localStorage
-      saveToStorage(KEYS.SCHEDULES, schedules);
+      // OpenAPI Spec: POST /shifts/assign (Individual)
+      // Frontend uses bulk assignment "Create Schedule".
+      // We must loop and call assign API for each item.
+      // Optimization: use Promise.all
+      const promises = schedules.map(s => 
+        apiClient.post('/shifts/assign', {
+            employeeId: s.employeeId,
+            shiftId: s.shiftId,
+            startDate: s.date,
+            endDate: s.date // Single day assignment
+        })
+      );
+      
+      await Promise.all(promises);
+    } catch (error) {
+       console.error("Failed to save schedules", error);
+       // Fallback or re-throw? 
+       // If partial failure, state is inconsistent. 
+       // For now, re-throw to notify user.
+       throw error;
     }
   },
 
@@ -427,6 +440,20 @@ export const storage = {
           return;
       }
       await apiClient.delete(`/requests/${id}`);
+  },
+
+  reviewRequest: async (id: string, status: 'APPROVED' | 'REJECTED'): Promise<void> => {
+      if (!APP_CONFIG.USE_SERVER_API) {
+          const requests = await storage.getRequests();
+          const req = requests.find(r => r.id === id);
+          if (req) {
+              req.status = status as any;
+              saveToStorage(KEYS.REQUESTS, requests);
+          }
+          return;
+      }
+      // OpenAPI Spec: POST /requests/{id}/review
+      await apiClient.post(`/requests/${id}/review`, { status });
   },
 
   // ============ HOLIDAYS ============

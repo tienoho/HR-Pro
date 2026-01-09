@@ -9,9 +9,10 @@ interface RequestManagerProps {
     onAdd: (req: AttendanceRequest) => Promise<void>;
     onUpdate: (req: AttendanceRequest) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
+    onReview: (id: string, status: 'APPROVED' | 'REJECTED') => Promise<void>;
 }
 
-const RequestManager: React.FC<RequestManagerProps> = ({ requests, employees, onAdd, onUpdate, onDelete }) => {
+const RequestManager: React.FC<RequestManagerProps> = ({ requests, employees, onAdd, onUpdate, onDelete, onReview }) => {
     const [filterStatus, setFilterStatus] = useState<RequestStatus | 'ALL'>('ALL');
     const [showModal, setShowModal] = useState(false);
     
@@ -109,9 +110,16 @@ const RequestManager: React.FC<RequestManagerProps> = ({ requests, employees, on
     };
 
     const handleStatusChange = (id: string, status: RequestStatus) => {
-        const req = requests.find(r => r.id === id);
-        if (req) {
-            onUpdate({ ...req, status });
+        // Use dedicated review method if supported, otherwise update
+        if (status === RequestStatus.Approved || status === RequestStatus.Rejected) {
+             // TS Hack: Ensure string literal matches expected type
+             const reviewStatus = status === RequestStatus.Approved ? 'APPROVED' : 'REJECTED';
+             onReview(id, reviewStatus);
+        } else {
+            const req = requests.find(r => r.id === id);
+            if (req) {
+                onUpdate({ ...req, status });
+            }
         }
     };
 

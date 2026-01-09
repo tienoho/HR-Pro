@@ -207,6 +207,7 @@ const App: React.FC = () => {
           toast.success("Thêm nhân viên thành công");
       } catch (e) {
           toast.fromError(e, "Lỗi thêm nhân viên");
+          throw e;
       }
   };
   const handleUpdateEmployee = async (emp: Employee) => {
@@ -216,6 +217,7 @@ const App: React.FC = () => {
           toast.success("Cập nhật nhân viên thành công");
       } catch (e) {
           toast.fromError(e, "Lỗi cập nhật nhân viên");
+          throw e;
       }
   };
   const handleDeleteEmployee = async (id: string) => {
@@ -260,6 +262,36 @@ const App: React.FC = () => {
           toast.fromError(e, "Lỗi lưu lịch");
       }
   };
+  
+  const handleAddShift = async (shift: Shift) => {
+      try {
+          const saved = await storage.saveShift(shift);
+          setShifts(prev => [...prev, saved]);
+          toast.success("Thêm ca thành công");
+      } catch (e) {
+          toast.fromError(e, "Lỗi thêm ca");
+          throw e;
+      }
+  };
+  const handleUpdateShift = async (shift: Shift) => {
+      try {
+          const saved = await storage.saveShift(shift);
+          setShifts(prev => prev.map(s => s.id === shift.id ? saved : s));
+          toast.success("Cập nhật ca thành công");
+      } catch (e) {
+          toast.fromError(e, "Lỗi cập nhật ca");
+          throw e;
+      }
+  };
+  const handleDeleteShift = async (id: string) => {
+      try {
+          await storage.deleteShift(id);
+          setShifts(prev => prev.filter(s => s.id !== id));
+          toast.success("Xóa ca thành công");
+      } catch (e) {
+          toast.fromError(e, "Lỗi xóa ca");
+      }
+  };
   // --- Requests CRUD ---
   const handleAddRequest = async (req: AttendanceRequest) => {
     try {
@@ -288,6 +320,15 @@ const App: React.FC = () => {
         toast.fromError(e, "Lỗi xóa đơn");
     }
   };
+  const handleReviewRequest = async (id: string, status: 'APPROVED' | 'REJECTED') => {
+      try {
+          await storage.reviewRequest(id, status);
+          setRequests(prev => prev.map(r => r.id === id ? { ...r, status: status as any } : r));
+          toast.success(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} đơn`);
+      } catch (e) {
+          toast.fromError(e, "Lỗi duyệt đơn");
+      }
+  };
 
   // --- Holidays CRUD ---
   const handleAddHoliday = async (h: Holiday) => {
@@ -298,7 +339,7 @@ const App: React.FC = () => {
           // But for single add, it's fine.
       } catch (e) {
           toast.fromError(e, "Lỗi thêm ngày lễ");
-          throw e; // Re-throw for Promise.all
+          throw e; 
       }
   };
   const handleDeleteHoliday = async (id: string) => {
@@ -370,6 +411,7 @@ const App: React.FC = () => {
                     onAdd={handleAddRequest}
                     onUpdate={handleUpdateRequest}
                     onDelete={handleDeleteRequest}
+                    onReview={handleReviewRequest}
                 />
             );
         case 'holidays':

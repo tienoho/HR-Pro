@@ -5,13 +5,14 @@ import { Clock, Plus, Trash2, Edit2, Moon, Sun, Save, CalendarCheck, Calendar, H
 
 interface ShiftConfigProps {
   shifts: Shift[];
-  onAddShift: (shift: Shift) => void;
-  onUpdateShift: (shift: Shift) => void;
-  onDeleteShift: (id: string) => void;
+  onAddShift: (shift: Shift) => Promise<void>;
+  onUpdateShift: (shift: Shift) => Promise<void>;
+  onDeleteShift: (id: string) => Promise<void>;
 }
 
 const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateShift, onDeleteShift }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [currentShift, setCurrentShift] = useState<Partial<Shift>>({});
 
   const handleEdit = (shift: Shift) => {
@@ -46,11 +47,18 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
     setIsEditing(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (currentShift.id && currentShift.code && currentShift.name && currentShift.effectiveFrom) {
-       if (shifts.find(s => s.id === currentShift.id)) onUpdateShift(currentShift as Shift);
-       else onAddShift(currentShift as Shift);
-       setIsEditing(false);
+       setIsSaving(true);
+       try {
+           if (shifts.find(s => s.id === currentShift.id)) await onUpdateShift(currentShift as Shift);
+           else await onAddShift(currentShift as Shift);
+           setIsEditing(false);
+       } catch (error) {
+           console.error(error);
+       } finally {
+           setIsSaving(false);
+       }
     } else alert("Vui lòng điền đầy đủ các thông tin bắt buộc.");
   };
 
@@ -186,8 +194,10 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
           </div>
         </div>
         <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3">
-            <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-700 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200">Hủy</button>
-            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 font-bold shadow-md shadow-blue-200"><Save size={18} /> Lưu cấu hình</button>
+            <button onClick={() => setIsEditing(false)} disabled={isSaving} className="px-4 py-2 text-slate-700 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200">Hủy</button>
+            <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 font-bold shadow-md shadow-blue-200 disabled:opacity-70">
+                {isSaving ? 'Đang lưu...' : <><Save size={18} /> Lưu cấu hình</>}
+            </button>
         </div>
       </div>
     );
@@ -216,9 +226,9 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
                             </div>
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => handleEdit(shift)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"><Edit2 size={16} /></button>
-                                <button onClick={() => {
+                                <button onClick={async () => {
                                     if (window.confirm(`Bạn có chắc chắn muốn xóa ca "${shift.name}"?\n\nHành động này không thể hoàn tác.`)) {
-                                        onDeleteShift(shift.id);
+                                        await onDeleteShift(shift.id);
                                     }
                                 }} className="p-2 text-red-600 hover:bg-red-50 rounded-full"><Trash2 size={16} /></button>
                             </div>

@@ -73,23 +73,54 @@ export const calculateTimesheet = (
   const monthIdx = viewMonth.getMonth(); 
   const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
 
+  // OPTIMIZATION: Build Lookups
+  const scheduleMap = new Map<string, ShiftAssignment>();
+  validSchedules.forEach(s => scheduleMap.set(`${s.employeeId}_${s.date}`, s));
+
+  const shiftMap = new Map<string, Shift>();
+  validShifts.forEach(s => shiftMap.set(s.id, s));
+
+  // Map requests to dates for O(1) Access
+  const requestMap = new Map<string, AttendanceRequest[]>();
+  validRequests.forEach(r => {
+      if (r.status === RequestStatus.Approved) {
+          let d = new Date(r.startDate);
+          const end = new Date(r.endDate || r.startDate);
+          while (d <= end) {
+              const dateStr = d.toISOString().split('T')[0];
+              const key = `${r.employeeId}_${dateStr}`;
+              if (!requestMap.has(key)) requestMap.set(key, []);
+              requestMap.get(key)?.push(r);
+              d.setDate(d.getDate() + 1);
+          }
+      }
+  });
+
   const processedLogs = validLogs
     .filter(l => !l.isIgnored && l.timestamp)
     .map(l => ({ ...l, dateObj: parseLogTime(l.timestamp) }))
     .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
+  // Helper to get logs for a specific employee
+  const logsByEmp = new Map<string, typeof processedLogs>();
+  processedLogs.forEach(l => {
+      if (!logsByEmp.has(l.timekeepingId)) logsByEmp.set(l.timekeepingId, []);
+      logsByEmp.get(l.timekeepingId)?.push(l);
+  });
+
   const getShiftForDate = (emp: Employee, dateStr: string, dateObj: Date): Shift | null => {
     let rawShift: Shift | undefined;
     const dayOfWeek = dateObj.getDay(); 
 
-    const assignment = validSchedules.find(s => s.employeeId === emp.id && s.date === dateStr);
+    // Optimized Lookup
+    const assignment = scheduleMap.get(`${emp.id}_${dateStr}`);
     
     if (assignment) {
       if (assignment.shiftId === 'OFF') return null;
-      rawShift = validShifts.find(s => s.id === assignment.shiftId);
+      rawShift = shiftMap.get(assignment.shiftId);
     } else {
       if (emp.defaultShiftId) {
-          const defaultShift = validShifts.find(s => s.id === emp.defaultShiftId);
+          const defaultShift = shiftMap.get(emp.defaultShiftId);
           if (defaultShift) {
               const workDays = defaultShift.workDays || [1,2,3,4,5];
               if (workDays.includes(dayOfWeek)) {
@@ -102,7 +133,6 @@ export const calculateTimesheet = (
     if (!rawShift) return null;
 
     // NEW: VALIDATE EFFECTIVE DATE
-    // If the date being calculated is BEFORE the shift's effective date, ignore this shift.
     if (rawShift.effectiveFrom && dateStr < rawShift.effectiveFrom) {
         return null;
     }
@@ -131,6 +161,9 @@ export const calculateTimesheet = (
   return validEmployees.map(emp => {
     const records: { [date: string]: DailyRecord } = {};
     const summary = { totalWorkHours: 0, totalOT: 0, totalLate: 0, totalAbsent: 0, totalLeaves: 0, totalLeaveHours: 0, totalHolidays: 0 };
+    
+    // Get pre-filtered logs for this employee
+    const empLogs = logsByEmp.get(emp.timekeepingId) || [];
 
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDayDate = new Date(year, monthIdx, day);
@@ -138,12 +171,9 @@ export const calculateTimesheet = (
       
       const shift = getShiftForDate(emp, dateStr, currentDayDate);
       const isHoliday = validHolidays.some(h => h.date === dateStr);
-      const approvedRequests = validRequests.filter(r => 
-        r.employeeId === emp.id && 
-        r.status === RequestStatus.Approved && 
-        dateStr >= r.startDate && 
-        dateStr <= (r.endDate || r.startDate)
-      );
+      
+      // Optimized Request Lookup
+      const approvedRequests = requestMap.get(`${emp.id}_${dateStr}`) || [];
 
       const approvedLeave = approvedRequests.find(r => r.type === RequestType.Leave);
       const approvedExplanation = approvedRequests.find(r => r.type === RequestType.Explanation);
@@ -215,8 +245,10 @@ export const calculateTimesheet = (
               windowStart = new Date(shiftStartDateTime.getTime() - 4 * 60 * 60 * 1000);
               windowEnd = new Date(shiftEndDateTime.getTime() + 4 * 60 * 60 * 1000);
 
-              const relevantLogs = processedLogs.filter(l => 
-                  l.timekeepingId === emp.timekeepingId &&
+              // Replace processedLogs filter with empLogs lookup for better performance
+              // But empLogs contains ALL logs for emp. We still need to filter by time window.
+              // Since empLogs is sorted, we can optimize (Binary search), but window filter is fast enough on small daily set.
+              const relevantLogs = empLogs.filter(l => 
                   l.dateObj >= windowStart &&
                   l.dateObj <= windowEnd
               );
@@ -335,8 +367,7 @@ export const calculateTimesheet = (
           windowStart.setHours(4, 0, 0, 0);
           windowEnd.setDate(windowEnd.getDate() + 1); 
           windowEnd.setHours(3, 59, 59, 0);
-          const relevantLogs = processedLogs.filter(l => 
-            l.timekeepingId === emp.timekeepingId &&
+          const relevantLogs = empLogs.filter(l => 
             l.dateObj >= windowStart &&
             l.dateObj <= windowEnd
           );
