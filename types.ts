@@ -16,21 +16,21 @@ export interface Shift {
   isOvernight: boolean;
   multiplier: number;
   color: string;
-  roundingMinutes: number; // e.g. 15, 30
+  roundingMinutes: number; 
+  effectiveFrom: string; // NEW: YYYY-MM-DD
   
-  // NEW: Work Schedule Configuration within Shift
-  workDays: number[]; // Array of days: 0 (Sun) - 6 (Sat). E.g., [1,2,3,4,5]
-  isSaturdayHalfDay: boolean; // If true, Saturday ends at 12:00 (or breakStart)
+  workDays: number[]; 
+  isSaturdayHalfDay: boolean; 
 }
 
 export interface Employee {
-  id: string; // UUID
-  code: string; // NV001 - Human readable ID
-  timekeepingId: string; // 101 - Machine ID
+  id: string; 
+  code: string; 
+  timekeepingId: string; 
   name: string;
   department: string;
   position: string;
-  joinDate: string; // YYYY-MM-DD
+  joinDate: string; 
   status: 'ACTIVE' | 'INACTIVE';
   
   defaultShiftId: string;
@@ -38,30 +38,28 @@ export interface Employee {
 
 export interface AttendanceLog {
   id: string;
-  timekeepingId: string; // Links to Employee.timekeepingId
-  timestamp: string; // ISO String or YYYY-MM-DD HH:mm:ss
+  timekeepingId: string; 
+  timestamp: string; 
   source: 'MACHINE' | 'IMPORT' | 'MANUAL';
-  isIgnored?: boolean; // For duplicates
+  isIgnored?: boolean; 
 }
 
 export interface ShiftAssignment {
   employeeId: string;
-  date: string; // YYYY-MM-DD
-  shiftId: string; // Shift ID or 'OFF'
+  date: string; 
+  shiftId: string; 
 }
 
-// --- NEW: Holiday ---
 export interface Holiday {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string; 
   name: string;
 }
 
-// --- NEW: Request Types ---
 export enum RequestType {
-  Leave = 'LEAVE', // Nghỉ phép
-  Overtime = 'OT', // Đăng ký OT
-  Explanation = 'EXPLANATION' // Giải trình quên chấm
+  Leave = 'LEAVE',
+  Overtime = 'OT', 
+  Explanation = 'EXPLANATION' 
 }
 
 export enum RequestStatus {
@@ -74,16 +72,11 @@ export interface AttendanceRequest {
   id: string;
   employeeId: string;
   type: RequestType;
-  
-  // Changed from single 'date' to Range
-  startDate: string; // YYYY-MM-DD
-  endDate: string;   // YYYY-MM-DD
-  
-  // Time specific options
+  startDate: string; 
+  endDate: string;   
   isFullDay: boolean;
-  startTime?: string; // HH:mm (Optional, if !isFullDay)
-  endTime?: string;   // HH:mm (Optional, if !isFullDay)
-
+  startTime?: string; 
+  endTime?: string;   
   reason: string;
   status: RequestStatus;
   meta?: any; 
@@ -98,13 +91,13 @@ export enum AttendanceStatus {
   Overtime = 'OVERTIME',
   Off = 'OFF',
   Leave = 'LEAVE',
-  Holiday = 'HOLIDAY' // New status
+  Holiday = 'HOLIDAY'
 }
 
 export interface DailyRecord {
-  date: string; // YYYY-MM-DD
-  checkIn?: string; // HH:mm
-  checkOut?: string; // HH:mm
+  date: string; 
+  checkIn?: string; 
+  checkOut?: string; 
   shiftId: string;
   status: AttendanceStatus[];
   workHours: number;
@@ -112,7 +105,7 @@ export interface DailyRecord {
   leaveHours: number; 
   lateMinutes: number;
   earlyMinutes: number;
-  requestStatus?: RequestStatus; // To show if there is a pending request
+  requestStatus?: RequestStatus; 
 }
 
 export interface TimesheetRow {
@@ -121,10 +114,10 @@ export interface TimesheetRow {
   summary: {
     totalWorkHours: number;
     totalOT: number;
-    totalLate: number; // count
-    totalAbsent: number; // count
-    totalLeaves: number; // count
+    totalLate: number; 
+    totalAbsent: number; 
+    totalLeaves: number; 
     totalLeaveHours: number;
-    totalHolidays: number; // New field
+    totalHolidays: number; 
   };
 }

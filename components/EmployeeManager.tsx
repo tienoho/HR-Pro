@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Employee, Shift } from '../types';
-import { Search, Plus, Filter, Edit2, Trash2, User, FileSpreadsheet, Download, Calendar, Check, Briefcase } from 'lucide-react';
+import { Search, Plus, Filter, Edit2, Trash2, User, FileSpreadsheet, Download, Calendar, Check, Briefcase, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface EmployeeManagerProps {
@@ -19,9 +19,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleEdit = (emp: Employee) => {
-    // Migration helper: if converting from weekly schedule version
     const defaultShiftId = emp.defaultShiftId || shifts[0]?.id || '';
-    
     setCurrentEmp({ ...emp, defaultShiftId });
     setIsEditing(true);
   };
@@ -79,11 +77,11 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
       fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
           const reader = new FileReader();
-          reader.onload = (evt) => {
+          reader.onload = async (evt) => {
               const bstr = evt.target?.result;
               if (bstr) {
                   try {
@@ -92,55 +90,90 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       const ws = wb.Sheets[wsName];
                       const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
                       
-                      let count = 0;
-                      let errors = 0;
                       const fallbackShiftId = shifts[0]?.id || '';
+                      const toAdd: Employee[] = [];
+                      const toUpdate: Employee[] = [];
+                      const skipped: string[] = [];
 
-                      data.slice(1).forEach(row => {
-                          const code = row[0] ? String(row[0]) : '';
-                          const timekeepingId = row[1] ? String(row[1]) : '';
-                          const name = row[2] ? String(row[2]) : '';
+                      // Skip header row
+                      const rows = data.slice(1);
+                      
+                      rows.forEach(row => {
+                          const code = row[0] ? String(row[0]).trim() : '';
+                          const timekeepingId = row[1] ? String(row[1]).trim() : '';
+                          const name = row[2] ? String(row[2]).trim() : '';
                           
                           if(code && name && timekeepingId) {
-                              const exists = employees.find(e => e.code === code || e.timekeepingId === timekeepingId);
-                              if (!exists) {
-                                  // Try to match shift code
-                                  let shiftId = fallbackShiftId;
-                                  if (row[6]) {
-                                      const foundShift = shifts.find(s => s.code === String(row[6]).trim());
-                                      if (foundShift) shiftId = foundShift.id;
-                                  }
-
-                                  const newEmp: Employee = {
-                                      id: Date.now().toString() + Math.random().toString().slice(2,5),
-                                      code: code,
-                                      timekeepingId: timekeepingId,
-                                      name: name,
-                                      department: row[3] ? String(row[3]) : '',
-                                      position: row[4] ? String(row[4]) : '',
-                                      joinDate: parseExcelDate(row[5]),
-                                      status: 'ACTIVE',
-                                      defaultShiftId: shiftId
-                                  };
-                                  onAdd(newEmp);
-                                  count++;
-                              } else {
-                                  errors++; 
+                              // Identify if employee already exists by code or machine ID
+                              const existing = employees.find(e => e.code === code || e.timekeepingId === timekeepingId);
+                              
+                              let shiftId = fallbackShiftId;
+                              if (row[6]) {
+                                  const foundShift = shifts.find(s => s.code === String(row[6]).trim());
+                                  if (foundShift) shiftId = foundShift.id;
                               }
-                          } else {
-                              errors++; 
+
+                              const empData: Employee = {
+                                  id: existing ? existing.id : (Date.now().toString() + Math.random().toString().slice(2,8)),
+                                  code: code,
+                                  timekeepingId: timekeepingId,
+                                  name: name,
+                                  department: row[3] ? String(row[3]) : (existing?.department || ''),
+                                  position: row[4] ? String(row[4]) : (existing?.position || ''),
+                                  joinDate: parseExcelDate(row[5]),
+                                  status: 'ACTIVE',
+                                  defaultShiftId: shiftId
+                              };
+
+                              if (existing) {
+                                  toUpdate.push(empData);
+                              } else {
+                                  toAdd.push(empData);
+                              }
+                          } else if (code || name || timekeepingId) {
+                              skipped.push(name || code || "Dòng trống");
                           }
                       });
+
+                      let shouldUpdate = false;
+                      if (toUpdate.length > 0) {
+                          shouldUpdate = window.confirm(
+                            `Phát hiện ${toUpdate.length} nhân viên đã tồn tại (khớp Mã NV hoặc Mã máy).\n\n` +
+                            `BẠN CÓ MUỐN CẬP NHẬT THÔNG TIN CHO HỌ KHÔNG?\n\n` +
+                            `- Chọn OK để Cập nhật (Ghi đè).\n` +
+                            `- Chọn Cancel để Bỏ qua và chỉ thêm mới.`
+                          );
+                      }
+
+                      // Execute additions
+                      toAdd.forEach(emp => onAdd(emp));
                       
-                      alert(`Đã import thành công: ${count} nhân viên.\nBỏ qua: ${errors}`);
+                      // Execute updates if confirmed
+                      if (shouldUpdate) {
+                          toUpdate.forEach(emp => onUpdate(emp));
+                      }
+
+                      const totalProcessed = toAdd.length + (shouldUpdate ? toUpdate.length : 0);
+                      const totalSkipped = skipped.length + (!shouldUpdate ? toUpdate.length : 0);
+
+                      alert(
+                          `KẾT QUẢ IMPORT:\n` +
+                          `--------------------------\n` +
+                          `✅ Đã thêm mới: ${toAdd.length}\n` +
+                          `🔄 Đã cập nhật: ${shouldUpdate ? toUpdate.length : 0}\n` +
+                          `⚠️ Đã bỏ qua: ${totalSkipped}\n\n` +
+                          `Hoàn tất xử lý dữ liệu.`
+                      );
+
                   } catch (error) {
                       console.error("Import error:", error);
-                      alert("Lỗi đọc file. Vui lòng kiểm tra định dạng.");
+                      alert("Lỗi đọc file. Vui lòng kiểm tra định dạng Excel.");
                   }
               }
           };
           reader.readAsBinaryString(file);
       }
+      // Reset input to allow re-upload of same file
       e.target.value = '';
   };
 
@@ -211,14 +244,14 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                   </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                  {filtered.map((emp) => {
+                  {filtered.length > 0 ? filtered.map((emp) => {
                       const shift = shifts.find(s => s.id === emp.defaultShiftId);
                       return (
                         <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-6 py-3">
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
-                                        {emp.name.split(' ').pop()?.substring(0,2).toUpperCase()}
+                                        {emp.name.split(' ').pop()?.substring(0,2).toUpperCase() || '??'}
                                     </div>
                                     <div>
                                         <div className="font-medium text-slate-800">{emp.name}</div>
@@ -242,16 +275,22 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                             </td>
                             <td className="px-6 py-3 text-center">
                                 <span className={`px-2 py-1 rounded-full text-xs font-bold ${emp.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                    {emp.status}
+                                    {emp.status === 'ACTIVE' ? 'Đang làm' : 'Đã nghỉ'}
                                 </span>
                             </td>
                             <td className="px-6 py-3 text-right">
-                                <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 size={16}/></button>
-                                <button onClick={() => onDelete(emp.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                                <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:text-blue-800 mr-3 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16}/></button>
+                                <button onClick={() => onDelete(emp.id)} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
                             </td>
                         </tr>
                       );
-                  })}
+                  }) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">
+                        Không tìm thấy nhân viên nào phù hợp.
+                      </td>
+                    </tr>
+                  )}
               </tbody>
           </table>
       </div>
@@ -262,14 +301,16 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
               <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
                   <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center sticky top-0 z-10">
                       <h3 className="font-bold text-lg text-slate-800">
-                          {currentEmp.id ? 'Cập nhật Nhân sự' : 'Thêm mới Nhân sự'}
+                          {currentEmp.id && employees.find(e => e.id === currentEmp.id) ? 'Cập nhật Nhân sự' : 'Thêm mới Nhân sự'}
                       </h3>
-                      <button onClick={() => setIsEditing(false)} className="text-slate-500 hover:text-slate-700">Đóng</button>
+                      <button onClick={() => setIsEditing(false)} className="text-slate-500 hover:text-slate-700 p-1 hover:bg-slate-100 rounded">
+                        <Plus className="rotate-45" size={24}/>
+                      </button>
                   </div>
                   <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Section 1: Basic Info */}
                       <div className="md:col-span-2">
-                          <h4 className="font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2"><User size={18}/> Thông tin cá nhân</h4>
+                          <h4 className="font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><User size={16}/> Thông tin cá nhân</h4>
                       </div>
                       <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Mã nhân viên (Human ID) <span className="text-red-500">*</span></label>
@@ -286,12 +327,14 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       <div>
                           <label className="block text-sm font-medium text-slate-700 mb-1">Phòng ban</label>
                           <select value={currentEmp.department} onChange={e => setCurrentEmp({...currentEmp, department: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                              <option>IT</option>
-                              <option>HR</option>
-                              <option>Kho</option>
-                              <option>Sale</option>
-                              <option>Accounting</option>
-                              <option>Kinh doanh</option>
+                              <option value="IT">IT</option>
+                              <option value="HR">HR</option>
+                              <option value="Kho">Kho</option>
+                              <option value="Sale">Sale</option>
+                              <option value="Accounting">Accounting</option>
+                              <option value="Kinh doanh">Kinh doanh</option>
+                              <option value="Sản xuất">Sản xuất</option>
+                              <option value="Vận chuyển">Vận chuyển</option>
                           </select>
                       </div>
                        <div>
@@ -312,28 +355,28 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       
                       {/* Section 2: Shift Info */}
                       <div className="md:col-span-2 mt-4">
-                          <h4 className="font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2"><Briefcase size={18}/> Cấu hình Chấm công</h4>
+                          <h4 className="font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><Briefcase size={16}/> Cấu hình Chấm công</h4>
                           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                                <label className="block text-sm font-bold text-slate-700 mb-2">Ca làm việc mặc định <span className="text-red-500">*</span></label>
                                <select 
                                     value={currentEmp.defaultShiftId} 
                                     onChange={e => setCurrentEmp({...currentEmp, defaultShiftId: e.target.value})}
-                                    className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                    className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
                                >
                                    <option value="">-- Chọn ca mặc định --</option>
                                    {shifts.map(s => (
                                        <option key={s.id} value={s.id}>{s.name} ({s.code}: {s.startTime}-{s.endTime})</option>
                                    ))}
                                </select>
-                               <p className="text-xs text-blue-600 mt-2">
-                                   * Ca này sẽ được áp dụng cho tất cả các ngày trong tuần. Nếu nhân viên nghỉ hoặc đổi ca, vui lòng cấu hình trong phần "Phân ca".
+                               <p className="text-[11px] text-blue-600 mt-2 font-medium flex items-center gap-1">
+                                   <AlertCircle size={12}/> Ca này sẽ tự động áp dụng khi không có lịch phân ca cụ thể.
                                </p>
                           </div>
                       </div>
                   </div>
                   <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 z-10">
-                      <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg">Hủy</button>
-                      <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"><Check size={16}/> Lưu Hồ Sơ</button>
+                      <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200">Hủy</button>
+                      <button onClick={handleSave} className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold flex items-center gap-2 shadow-md shadow-blue-200"><Check size={18}/> Lưu Hồ Sơ</button>
                   </div>
               </div>
           </div>
