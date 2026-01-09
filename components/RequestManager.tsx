@@ -6,10 +6,12 @@ import { Search, Plus, CheckCircle, XCircle, Clock, FileText, Check, X, Calendar
 interface RequestManagerProps {
     requests: AttendanceRequest[];
     employees: Employee[];
-    onUpdateRequests: (reqs: AttendanceRequest[]) => void;
+    onAdd: (req: AttendanceRequest) => Promise<void>;
+    onUpdate: (req: AttendanceRequest) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
 }
 
-const RequestManager: React.FC<RequestManagerProps> = ({ requests, employees, onUpdateRequests }) => {
+const RequestManager: React.FC<RequestManagerProps> = ({ requests, employees, onAdd, onUpdate, onDelete }) => {
     const [filterStatus, setFilterStatus] = useState<RequestStatus | 'ALL'>('ALL');
     const [showModal, setShowModal] = useState(false);
     
@@ -92,7 +94,7 @@ const RequestManager: React.FC<RequestManagerProps> = ({ requests, employees, on
             status: RequestStatus.Pending
         };
 
-        onUpdateRequests([...requests, newReq]);
+        onAdd(newReq);
         setShowModal(false);
         resetForm();
     };
@@ -107,8 +109,10 @@ const RequestManager: React.FC<RequestManagerProps> = ({ requests, employees, on
     };
 
     const handleStatusChange = (id: string, status: RequestStatus) => {
-        const updated = requests.map(r => r.id === id ? { ...r, status } : r);
-        onUpdateRequests(updated);
+        const req = requests.find(r => r.id === id);
+        if (req) {
+            onUpdate({ ...req, status });
+        }
     };
 
     const filtered = requests.filter(r => filterStatus === 'ALL' || r.status === filterStatus);

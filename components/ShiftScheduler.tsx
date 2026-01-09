@@ -122,7 +122,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       setTimeout(() => setShowSavedToast(false), 3000);
   };
 
-  // Fix: Added handleFileChange to resolve the "Cannot find name 'handleFileChange'" error
+  // Import schedule from Excel
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
@@ -134,12 +134,109 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
                       const wb = XLSX.read(bstr, { type: 'binary' });
                       const wsName = wb.SheetNames[0];
                       const ws = wb.Sheets[wsName];
-                      const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
-                      console.log("Imported schedule data:", data);
-                      alert("Tính năng Import lịch làm việc đang được phát triển.");
+                      const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }) as any[][];
+                      
+                      if (data.length < 2) {
+                          alert('File không có dữ liệu hoặc sai định dạng.');
+                          return;
+                      }
+
+                      // First row is headers: [Mã NV, Tên NV, Date1, Date2, ...]
+                      const headers = data[0];
+                      const dateHeaders = headers.slice(2); // Skip 'Mã NV' and 'Tên NV'
+                      
+                      // Create shift code to ID map
+                      const shiftCodeMap = new Map<string, string>();
+                      safeShifts.forEach(s => shiftCodeMap.set(s.code.toUpperCase(), s.id));
+                      shiftCodeMap.set('OFF', 'OFF');
+                      shiftCodeMap.set('P', 'OFF'); // Leave/Phép treated as OFF
+                      
+                      // Create employee code to ID map
+                      const empCodeMap = new Map<string, string>();
+                      safeEmployees.forEach(e => empCodeMap.set(e.code.toUpperCase(), e.id));
+                      
+                      const newAssignments: ShiftAssignment[] = [];
+                      let importedCount = 0;
+                      let skippedCount = 0;
+                      const errors: string[] = [];
+                      
+                      // Process data rows
+                      data.slice(1).forEach((row, rowIdx) => {
+                          const empCode = String(row[0] || '').trim().toUpperCase();
+                          const empId = empCodeMap.get(empCode);
+                          
+                          if (!empId) {
+                              if (empCode) {
+                                  errors.push(`Dòng ${rowIdx + 2}: Mã NV "${empCode}" không tồn tại`);
+                                  skippedCount++;
+                              }
+                              return;
+                          }
+                          
+                          // Process each date column
+                          dateHeaders.forEach((dateHeader, colIdx) => {
+                              const cellValue = String(row[colIdx + 2] || '').trim().toUpperCase();
+                              if (!cellValue) return;
+                              
+                              // Parse date from header (expected format: YYYY-MM-DD)
+                              let dateStr = '';
+                              if (String(dateHeader).match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                  dateStr = dateHeader;
+                              } else {
+                                  // Try to parse other date formats
+                                  const d = new Date(dateHeader);
+                                  if (!isNaN(d.getTime())) {
+                                      dateStr = toLocalISODate(d);
+                                  }
+                              }
+                              
+                              if (!dateStr) return;
+                              
+                              // Map cell value to shift ID
+                              let shiftId = shiftCodeMap.get(cellValue);
+                              if (!shiftId) {
+                                  // Try partial match
+                                  for (const [code, id] of shiftCodeMap) {
+                                      if (cellValue.includes(code) || code.includes(cellValue)) {
+                                          shiftId = id;
+                                          break;
+                                      }
+                                  }
+                              }
+                              
+                              if (shiftId) {
+                                  newAssignments.push({
+                                      employeeId: empId,
+                                      date: dateStr,
+                                      shiftId: shiftId
+                                  });
+                                  importedCount++;
+                              }
+                          });
+                      });
+                      
+                      if (importedCount > 0) {
+                          // Merge with existing schedules (overwrite duplicates)
+                          const existingMap = new Map<string, ShiftAssignment>();
+                          safeSchedules.forEach(s => existingMap.set(`${s.employeeId}_${s.date}`, s));
+                          newAssignments.forEach(s => existingMap.set(`${s.employeeId}_${s.date}`, s));
+                          
+                          onUpdateSchedule(Array.from(existingMap.values()));
+                          
+                          let msg = `Import thành công ${importedCount} lịch phân ca.`;
+                          if (skippedCount > 0) {
+                              msg += `\nBỏ qua ${skippedCount} dòng lỗi.`;
+                          }
+                          if (errors.length > 0 && errors.length <= 5) {
+                              msg += '\n\nChi tiết lỗi:\n' + errors.join('\n');
+                          }
+                          alert(msg);
+                      } else {
+                          alert('Không tìm thấy dữ liệu hợp lệ để import.\n\nVui lòng kiểm tra:\n- Cột đầu tiên là Mã NV\n- Hàng đầu tiên là ngày (YYYY-MM-DD)\n- Giá trị trong ô là mã ca (HC, CD, ...) hoặc OFF');
+                      }
                   } catch (error) {
                       console.error("Import error:", error);
-                      alert("Lỗi đọc file.");
+                      alert("Lỗi đọc file Excel. Vui lòng kiểm tra định dạng file.");
                   }
               }
           };

@@ -280,7 +280,11 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                             </td>
                             <td className="px-6 py-3 text-right">
                                 <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:text-blue-800 mr-3 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16}/></button>
-                                <button onClick={() => onDelete(emp.id)} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                <button onClick={() => {
+                                    if (window.confirm(`Bạn có chắc chắn muốn xóa nhân viên "${emp.name}"?\n\nHành động này không thể hoàn tác.`)) {
+                                        onDelete(emp.id);
+                                    }
+                                }} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
                             </td>
                         </tr>
                       );

@@ -6,10 +6,13 @@ import * as XLSX from 'xlsx';
 
 interface HolidayManagerProps {
   holidays: Holiday[];
-  onUpdateHolidays: (holidays: Holiday[]) => void;
+  onAdd: (h: Holiday) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  // For Import/Copy, we might need bulk add, but we can loop onAdd for now or use a bulk prop if available.
+  // We'll rename onUpdateHolidays to onImport (optional) or just loop in component.
 }
 
-const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onUpdateHolidays }) => {
+const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onAdd, onDelete }) => {
   const [newDate, setNewDate] = useState('');
   const [newName, setNewName] = useState('');
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
@@ -32,14 +35,14 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onUpdateHolid
       date: newDate,
       name: newName
     };
-    onUpdateHolidays([...holidays, newHoliday]);
+    onAdd(newHoliday);
     setNewDate('');
     setNewName('');
   };
 
   const handleDelete = (id: string) => {
     if(window.confirm('Bạn có chắc chắn muốn xóa ngày lễ này?')) {
-        onUpdateHolidays(holidays.filter(h => h.id !== id));
+        onDelete(id);
     }
   };
 
@@ -74,8 +77,11 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onUpdateHolid
         }
     });
 
-    onUpdateHolidays([...holidays, ...newHolidays]);
-    alert(`Đã sao chép thành công ${count} ngày lễ.`);
+    // Adding multiple items
+    // Since we don't have bulk add prop, we loop. Ideally should be Promise.all
+    Promise.all(newHolidays.map(h => onAdd(h)))
+        .then(() => alert(`Đã sao chép thành công ${count} ngày lễ.`))
+        .catch(() => alert("Có lỗi xảy ra khi sao chép."));
   };
 
   // Import Logic
@@ -137,8 +143,12 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onUpdateHolid
                       });
 
                       if (count > 0) {
-                          onUpdateHolidays([...holidays, ...newItems]);
-                          alert(`Đã import thành công ${count} ngày lễ.`);
+                          Promise.all(newItems.map(h => onAdd(h)))
+                            .then(() => alert(`Đã import thành công ${count} ngày lễ.`))
+                            .catch((e) => {
+                                console.error(e);
+                                alert("Có lỗi khi lưu dữ liệu import. Vui lòng kiểm tra console.");
+                            });
                       } else {
                           alert('Không tìm thấy dữ liệu hợp lệ hoặc dữ liệu đã tồn tại. Vui lòng kiểm tra định dạng ngày (YYYY-MM-DD).');
                       }

@@ -282,7 +282,14 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
                     </div>
                     <div className="flex items-center gap-4">
                         <span className="text-sm font-bold text-red-600">Trễ {item.minutes} phút</span>
-                        <button className="px-3 py-1 text-xs border border-slate-300 rounded hover:bg-white bg-slate-50 text-slate-700">Gửi nhắc nhở</button>
+                        <button 
+                            onClick={() => {
+                                alert(`Tính năng gửi nhắc nhở cho "${item.name}" cần được tích hợp với hệ thống email/SMS của công ty.\n\nVui lòng liên hệ IT để cấu hình.`);
+                            }}
+                            className="px-3 py-1 text-xs border border-slate-300 rounded hover:bg-white bg-slate-50 text-slate-700"
+                        >
+                            Gửi nhắc nhở
+                        </button>
                     </div>
                 </div>
             )) : (

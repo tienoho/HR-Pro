@@ -136,6 +136,53 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
                     </div>
                 </div>
              </div>
+
+             {/* Work Days Selector */}
+             <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                <div className="flex items-center gap-2 mb-4"><CalendarCheck className="w-5 h-5 text-green-600" /> <span className="font-medium text-green-800">Ngày làm việc</span></div>
+                <div className="flex flex-wrap gap-2">
+                    {dayLabels.map(day => {
+                        const isSelected = currentShift.workDays?.includes(day.v);
+                        return (
+                            <button
+                                key={day.v}
+                                type="button"
+                                onClick={() => {
+                                    const current = currentShift.workDays || [];
+                                    const newDays = isSelected 
+                                        ? current.filter(d => d !== day.v)
+                                        : [...current, day.v].sort((a, b) => a - b);
+                                    setCurrentShift({...currentShift, workDays: newDays});
+                                }}
+                                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+                                    isSelected 
+                                        ? 'bg-green-600 text-white shadow-md' 
+                                        : 'bg-white text-slate-500 border border-slate-200 hover:border-green-300'
+                                }`}
+                            >
+                                {day.l}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="text-[10px] text-green-700 mt-3 font-medium">Chọn các ngày trong tuần mà ca này áp dụng. Ngày không được chọn sẽ tự động tính là ngày nghỉ.</p>
+             </div>
+
+             {/* Saturday Half-day Toggle */}
+             <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        checked={currentShift.isSaturdayHalfDay || false}
+                        onChange={e => setCurrentShift({...currentShift, isSaturdayHalfDay: e.target.checked})}
+                        className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+                    />
+                    <div>
+                        <span className="font-medium text-orange-800">Thứ 7 làm nửa ngày</span>
+                        <p className="text-[10px] text-orange-600">Nếu bật, thứ 7 sẽ chỉ tính công đến 12:00 (hoặc breakStart)</p>
+                    </div>
+                </label>
+             </div>
           </div>
         </div>
         <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3">
@@ -169,7 +216,11 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
                             </div>
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => handleEdit(shift)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"><Edit2 size={16} /></button>
-                                <button onClick={() => onDeleteShift(shift.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-full"><Trash2 size={16} /></button>
+                                <button onClick={() => {
+                                    if (window.confirm(`Bạn có chắc chắn muốn xóa ca "${shift.name}"?\n\nHành động này không thể hoàn tác.`)) {
+                                        onDeleteShift(shift.id);
+                                    }
+                                }} className="p-2 text-red-600 hover:bg-red-50 rounded-full"><Trash2 size={16} /></button>
                             </div>
                         </div>
                         <div className="space-y-3">
