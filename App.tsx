@@ -263,35 +263,7 @@ const App: React.FC = () => {
       }
   };
   
-  const handleAddShift = async (shift: Shift) => {
-      try {
-          const saved = await storage.saveShift(shift);
-          setShifts(prev => [...prev, saved]);
-          toast.success("Thêm ca thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi thêm ca");
-          throw e;
-      }
-  };
-  const handleUpdateShift = async (shift: Shift) => {
-      try {
-          const saved = await storage.saveShift(shift);
-          setShifts(prev => prev.map(s => s.id === shift.id ? saved : s));
-          toast.success("Cập nhật ca thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi cập nhật ca");
-          throw e;
-      }
-  };
-  const handleDeleteShift = async (id: string) => {
-      try {
-          await storage.deleteShift(id);
-          setShifts(prev => prev.filter(s => s.id !== id));
-          toast.success("Xóa ca thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi xóa ca");
-      }
-  };
+
   // --- Requests CRUD ---
   const handleAddRequest = async (req: AttendanceRequest) => {
     try {

@@ -1,10 +1,9 @@
-
 services:
   - type: web
     name: hr-pro-attendance
     env: node
     plan: free
-    buildCommand: "npm install"
+    buildCommand: "npm install && npm run build"
     startCommand: "npm start"
     envVars:
       - key: NODE_VERSION
