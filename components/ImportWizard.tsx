@@ -1,22 +1,32 @@
 
-import React, { useState } from 'react';
-import { Upload, FileSpreadsheet, ArrowRight, CheckCircle, AlertTriangle, X, Eye, ChevronDown, Sparkles, Wand2, RotateCcw } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Upload, ArrowRight, CheckCircle, AlertTriangle, X, ChevronDown, Sparkles, Wand2, RotateCcw, AlertCircle, FileWarning } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { AttendanceLog } from '../types';
+import { AttendanceLog, Employee } from '../types';
 
 const STEPS = ['Upload File', 'Map Columns', 'Validate', 'Complete'];
 
 interface ImportWizardProps {
   onImportLogs: (logs: AttendanceLog[]) => void;
+  employees: Employee[]; // Added to perform validation
 }
 
-const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
+interface ValidationSummary {
+    total: number;
+    valid: number;
+    invalid: number;
+    unknownEmployees: number; // IDs not found in system
+    invalidDates: number;
+    errors: string[];
+}
+
+const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs, employees }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   
   // State for parsed file data
   const [fileHeaders, setFileHeaders] = useState<string[]>([]);
-  const [fileData, setFileData] = useState<any[][]>([]); // Store all data
+  const [fileData, setFileData] = useState<any[][]>([]); 
   const [previewRows, setPreviewRows] = useState<any[][]>([]);
 
   // Mapping stores column INDEX as string
@@ -26,6 +36,10 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
     checkIn: '',
     checkOut: ''
   });
+
+  // Validation State
+  const [validationSummary, setValidationSummary] = useState<ValidationSummary | null>(null);
+  const [validLogs, setValidLogs] = useState<AttendanceLog[]>([]);
 
   // Helper to suggest column based on keywords
   const getSuggestedIndex = (fieldKey: keyof typeof mapping, headers: string[] = fileHeaders) => {
@@ -39,7 +53,6 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
     };
     
     const targetKeywords = keywords[fieldKey] || [];
-    // Find index of first header containing a keyword
     const idx = headers.findIndex(h => targetKeywords.some(k => h.toLowerCase().includes(k)));
     return idx !== -1 ? String(idx) : '';
   };
@@ -62,8 +75,8 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       setFile(selectedFile);
+      setValidationSummary(null);
 
-      // Parse file to get headers and preview data
       const reader = new FileReader();
       reader.onload = (evt) => {
         const bstr = evt.target?.result;
@@ -72,20 +85,15 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
                 const wb = XLSX.read(bstr, { type: 'binary', cellDates: true, dateNF: 'yyyy-mm-dd hh:mm:ss' });
                 const wsName = wb.SheetNames[0];
                 const ws = wb.Sheets[wsName];
-                
-                // IMPORTANT: Use raw: false to get formatted strings based on dateNF or Excel format
-                // This prevents Timezone issues when converting Serial Dates manually
                 const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }) as any[][];
                 
                 if (data && data.length > 0) {
                     const headers = data[0].map(h => String(h));
-                    // Store all rows excluding header
                     const allRows = data.slice(1);
                     setFileData(allRows);
                     setFileHeaders(headers);
                     setPreviewRows(allRows.slice(0, 5));
 
-                    // Unified Auto-mapping Logic
                     const newMapping = {
                         empId: getSuggestedIndex('empId', headers),
                         date: getSuggestedIndex('date', headers),
@@ -102,44 +110,85 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
       };
       reader.readAsBinaryString(selectedFile);
     }
-    // Allow re-uploading the same file if needed by resetting input value
     e.target.value = '';
   };
 
-  const processImport = () => {
-      // Convert Excel rows to AttendanceLogs
-      const newLogs: AttendanceLog[] = [];
+  // Perform Validation Logic
+  const performValidation = () => {
       const empIdIdx = parseInt(mapping.empId);
       const dateIdx = parseInt(mapping.date);
       
-      fileData.forEach((row, index) => {
-          const rawId = row[empIdIdx];
-          const rawDate = row[dateIdx]; 
+      let validCount = 0;
+      let invalidCount = 0;
+      let unknownEmpCount = 0;
+      let invalidDateCount = 0;
+      const errors: string[] = [];
+      const logsToImport: AttendanceLog[] = [];
 
-          if (rawId && rawDate) {
-              // Since we used raw: false, rawDate should be a string.
-              // We try to normalize it to standard ISO format
-              let timestamp = String(rawDate).trim();
-              
-              // Basic validation to ensure it looks like a date/time
-              // If Excel returns "45321" (string), it means formatting failed, but typically raw:false prevents this.
-              
-              newLogs.push({
-                  id: `imp-${Date.now()}-${index}`,
-                  timekeepingId: String(rawId),
-                  timestamp: timestamp,
-                  source: 'IMPORT',
-                  isIgnored: false
-              });
+      // Create a Set for faster lookup
+      const existingTimekeepingIds = new Set(employees.map(e => e.timekeepingId));
+
+      fileData.forEach((row, index) => {
+          const rawId = row[empIdIdx] ? String(row[empIdIdx]).trim() : '';
+          const rawDate = row[dateIdx] ? String(row[dateIdx]).trim() : '';
+
+          if (!rawId || !rawDate) {
+              invalidCount++;
+              return; // Skip empty rows
           }
+
+          // Check 1: Orphaned Data (Employee not found)
+          if (!existingTimekeepingIds.has(rawId)) {
+              invalidCount++;
+              unknownEmpCount++;
+              if (errors.length < 5) errors.push(`Dòng ${index + 2}: Mã máy "${rawId}" không tồn tại trong hệ thống.`);
+              return;
+          }
+
+          // Check 2: Date Format
+          // Simple check if it looks like a date string or timestamp
+          if (rawDate.length < 8) {
+              invalidCount++;
+              invalidDateCount++;
+              if (errors.length < 5) errors.push(`Dòng ${index + 2}: Định dạng ngày giờ không hợp lệ "${rawDate}".`);
+              return;
+          }
+
+          logsToImport.push({
+              id: `imp-${Date.now()}-${index}`,
+              timekeepingId: rawId,
+              timestamp: rawDate,
+              source: 'IMPORT',
+              isIgnored: false
+          });
+          validCount++;
       });
 
-      onImportLogs(newLogs);
-      setCurrentStep(4);
+      if (unknownEmpCount > 5) errors.push(`...và ${unknownEmpCount - 5} lỗi mã nhân viên khác.`);
+
+      setValidationSummary({
+          total: fileData.length,
+          valid: validCount,
+          invalid: invalidCount,
+          unknownEmployees: unknownEmpCount,
+          invalidDates: invalidDateCount,
+          errors
+      });
+      setValidLogs(logsToImport);
+      setCurrentStep(3);
+  };
+
+  const processImport = () => {
+      if (validLogs.length > 0) {
+          onImportLogs(validLogs);
+          setCurrentStep(4);
+      }
   };
 
   const nextStep = () => {
-    if (currentStep === 3) {
+    if (currentStep === 2) {
+        performValidation();
+    } else if (currentStep === 3) {
         processImport();
     } else if (currentStep < 4) {
         setCurrentStep(currentStep + 1);
@@ -161,7 +210,6 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
       const selectedColIdx = mapping[fieldKey];
       const samples = getColumnSamples(selectedColIdx);
       const suggestedIdx = getSuggestedIndex(fieldKey);
-      
       const isSuggestedMatch = selectedColIdx === suggestedIdx && suggestedIdx !== '';
 
       return (
@@ -192,21 +240,17 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
                       'border-blue-300 bg-blue-50 text-blue-900 font-medium'}`}
                 >
                     <option value="">-- Chọn cột --</option>
-                    {fileHeaders.map((header, idx) => {
-                         const isSuggested = String(idx) === suggestedIdx;
-                         return (
-                            <option key={idx} value={idx}>
-                                {idx + 1}. {header} {isSuggested ? '✨' : ''}
-                            </option>
-                        );
-                    })}
+                    {fileHeaders.map((header, idx) => (
+                        <option key={idx} value={idx}>
+                            {idx + 1}. {header}
+                        </option>
+                    ))}
                 </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                     <ChevronDown size={16} />
                 </div>
             </div>
             
-            {/* Quick Apply Suggestion Button (Only show if mismatch and suggestion exists) */}
             {suggestedIdx !== '' && selectedColIdx !== suggestedIdx && (
                  <button 
                     onClick={() => setMapping({...mapping, [fieldKey]: suggestedIdx})}
@@ -217,7 +261,6 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
                  </button>
             )}
             
-            {/* Sample Data Preview */}
             <div className="mt-3">
                 {selectedColIdx !== '' ? (
                     <div className="bg-slate-50/50 rounded-md p-2 border border-slate-100">
@@ -310,49 +353,56 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {renderMappingField("Mã Chấm công (Machine ID)", "empId")}
                     {renderMappingField("Thời gian (Ngày giờ)", "date")}
-                    {/* Simplified for demo: assuming timestamp contains everything, otherwise map Date and Time separately */}
                 </div>
             )}
-            
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mt-4 text-xs text-yellow-800 flex gap-2">
-                <AlertTriangle size={16} className="shrink-0 mt-0.5"/>
-                <p>Đảm bảo cột <strong>Thời gian</strong> chứa đầy đủ Ngày và Giờ (VD: 2023-01-01 08:00:00). Nếu chỉ có giờ, hệ thống sẽ không hiểu là ngày nào.</p>
-            </div>
           </div>
         );
       case 3:
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-slate-800">Xem trước dữ liệu</h3>
-                <div className="flex gap-2">
-                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-medium">Số dòng: {fileData.length}</span>
-                </div>
+                <h3 className="text-lg font-bold text-slate-800">Kết quả Kiểm tra Dữ liệu</h3>
+                <span className="text-sm text-slate-500">Hệ thống tự động loại bỏ các dòng không hợp lệ.</span>
              </div>
              
-             <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
-                        <tr>
-                            <th className="px-4 py-3">Dòng</th>
-                            <th className="px-4 py-3">Mã chấm công</th>
-                            <th className="px-4 py-3">Thời gian</th>
-                            <th className="px-4 py-3">Trạng thái</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                         {/* Preview first 5 rows based on mapping */}
-                         {fileData.slice(0, 5).map((row, idx) => (
-                             <tr key={idx} className="bg-white">
-                                 <td className="px-4 py-2 text-slate-500">{idx + 1}</td>
-                                 <td className="px-4 py-2 font-mono">{mapping.empId ? row[parseInt(mapping.empId)] : '--'}</td>
-                                 <td className="px-4 py-2">{mapping.date ? row[parseInt(mapping.date)] : '--'}</td>
-                                 <td className="px-4 py-2"><span className="text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Sẵn sàng</span></td>
-                             </tr>
+             {validationSummary && (
+                 <div className="grid grid-cols-3 gap-4">
+                     <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                         <p className="text-sm text-blue-600 mb-1">Tổng số dòng</p>
+                         <p className="text-2xl font-bold text-blue-800">{validationSummary.total}</p>
+                     </div>
+                     <div className="bg-green-50 border border-green-100 p-4 rounded-xl">
+                         <p className="text-sm text-green-600 mb-1">Hợp lệ (Sẵn sàng)</p>
+                         <p className="text-2xl font-bold text-green-800">{validationSummary.valid}</p>
+                     </div>
+                     <div className={`border p-4 rounded-xl ${validationSummary.invalid > 0 ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
+                         <p className={`text-sm mb-1 ${validationSummary.invalid > 0 ? 'text-red-600' : 'text-slate-500'}`}>Không hợp lệ</p>
+                         <p className={`text-2xl font-bold ${validationSummary.invalid > 0 ? 'text-red-800' : 'text-slate-700'}`}>{validationSummary.invalid}</p>
+                     </div>
+                 </div>
+             )}
+
+             {validationSummary && validationSummary.invalid > 0 && (
+                 <div className="bg-red-50 border border-red-100 rounded-lg p-4">
+                     <h4 className="font-bold text-red-800 text-sm mb-2 flex items-center gap-2"><AlertCircle size={16}/> Chi tiết lỗi</h4>
+                     <ul className="list-disc list-inside text-xs text-red-700 space-y-1">
+                         {validationSummary.unknownEmployees > 0 && <li>Có <strong>{validationSummary.unknownEmployees}</strong> mã chấm công không tồn tại trong hệ thống.</li>}
+                         {validationSummary.invalidDates > 0 && <li>Có <strong>{validationSummary.invalidDates}</strong> dòng sai định dạng ngày tháng.</li>}
+                         <li className="mt-2 font-semibold text-red-900 border-t border-red-200 pt-2">Log chi tiết (5 lỗi đầu tiên):</li>
+                         {validationSummary.errors.map((err, i) => (
+                             <li key={i} className="pl-4">{err}</li>
                          ))}
-                    </tbody>
-                </table>
-             </div>
+                     </ul>
+                 </div>
+             )}
+
+            {validationSummary && validationSummary.valid === 0 && (
+                <div className="text-center p-8 border border-dashed border-red-300 rounded-lg bg-red-50 text-red-600">
+                    <FileWarning className="mx-auto mb-2" size={32}/>
+                    <p className="font-medium">Không có dữ liệu hợp lệ để Import.</p>
+                    <p className="text-sm opacity-80 mt-1">Vui lòng kiểm tra lại file hoặc cấu hình nhân viên.</p>
+                </div>
+            )}
           </div>
         );
       case 4:
@@ -362,8 +412,10 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
                      <CheckCircle className="w-8 h-8 text-green-600" />
                  </div>
                  <h2 className="text-2xl font-bold text-slate-800 mb-2">Import Thành công!</h2>
-                 <p className="text-slate-600 mb-6 max-w-md">Dữ liệu đã được xử lý. Bạn có thể kiểm tra trong bảng công ngay bây giờ.</p>
-                 <button onClick={() => { setFile(null); setCurrentStep(1); }} className="text-blue-600 font-medium hover:text-blue-800 underline underline-offset-4">Import file khác</button>
+                 <p className="text-slate-600 mb-6 max-w-md">
+                     Đã thêm <strong>{validLogs.length}</strong> dòng nhật ký chấm công vào hệ thống.
+                 </p>
+                 <button onClick={() => { setFile(null); setCurrentStep(1); setValidationSummary(null); }} className="text-blue-600 font-medium hover:text-blue-800 underline underline-offset-4">Import file khác</button>
              </div>
          )
       default:
@@ -413,13 +465,16 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ onImportLogs }) => {
                 Quay lại
             </button>
             <div className="flex gap-3">
-                 {/* Optional: Cancel button could go here */}
                 <button 
                     onClick={nextStep}
-                    disabled={(currentStep === 1 && !file) || (currentStep === 2 && (!mapping.empId || !mapping.date))}
+                    disabled={
+                        (currentStep === 1 && !file) || 
+                        (currentStep === 2 && (!mapping.empId || !mapping.date)) ||
+                        (currentStep === 3 && (!validationSummary || validationSummary.valid === 0))
+                    }
                     className="px-6 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 flex items-center gap-2 transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                 >
-                    {currentStep === 3 ? 'Hoàn tất' : 'Tiếp tục'} <ArrowRight size={18}/>
+                    {currentStep === 3 ? 'Xác nhận Import' : 'Tiếp tục'} <ArrowRight size={18}/>
                 </button>
             </div>
         </div>

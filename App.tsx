@@ -241,7 +241,8 @@ const App: React.FC = () => {
                 />
             );
         case 'import':
-            return <ImportWizard onImportLogs={handleImportLogs} />; 
+            // UPDATED: Pass employees prop for validation
+            return <ImportWizard onImportLogs={handleImportLogs} employees={employees} />; 
         case 'rawdata':
             return (
                 <RawDataView 
