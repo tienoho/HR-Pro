@@ -7,15 +7,14 @@ import * as XLSX from 'xlsx';
 interface EmployeeManagerProps {
   employees: Employee[];
   shifts: Shift[];
-  onAdd: (emp: Employee) => Promise<void>;
-  onUpdate: (emp: Employee) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onAdd: (emp: Employee) => void;
+  onUpdate: (emp: Employee) => void;
+  onDelete: (id: string) => void;
 }
 
 const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, onAdd, onUpdate, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [currentEmp, setCurrentEmp] = useState<Partial<Employee>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,23 +39,15 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
     setIsEditing(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (currentEmp.code && currentEmp.name && currentEmp.timekeepingId && currentEmp.defaultShiftId) {
-       setIsSaving(true);
-       try {
-           const exists = employees.find(e => e.id === currentEmp.id);
-           if (exists) {
-             await onUpdate(currentEmp as Employee);
-           } else {
-             await onAdd(currentEmp as Employee);
-           }
-           setIsEditing(false);
-       } catch (error) {
-           // Error handled by parent toast, just keep modal open
-           console.error("Save failed", error);
-       } finally {
-           setIsSaving(false);
+       const exists = employees.find(e => e.id === currentEmp.id);
+       if (exists) {
+         onUpdate(currentEmp as Employee);
+       } else {
+         onAdd(currentEmp as Employee);
        }
+       setIsEditing(false);
     } else {
         alert("Vui lòng điền đầy đủ các trường bắt buộc.");
     }
@@ -154,16 +145,12 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                           );
                       }
 
-                      // Execute additions sequentially to avoid race conditions and UI freeze
-                      for (const emp of toAdd) {
-                          await onAdd(emp);
-                      }
+                      // Execute additions
+                      toAdd.forEach(emp => onAdd(emp));
                       
                       // Execute updates if confirmed
                       if (shouldUpdate) {
-                          for (const emp of toUpdate) {
-                              await onUpdate(emp);
-                          }
+                          toUpdate.forEach(emp => onUpdate(emp));
                       }
 
                       const totalProcessed = toAdd.length + (shouldUpdate ? toUpdate.length : 0);
@@ -293,11 +280,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                             </td>
                             <td className="px-6 py-3 text-right">
                                 <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:text-blue-800 mr-3 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16}/></button>
-                                <button onClick={async () => {
-                                    if (window.confirm(`Bạn có chắc chắn muốn xóa nhân viên "${emp.name}"?\n\nHành động này không thể hoàn tác.`)) {
-                                        await onDelete(emp.id);
-                                    }
-                                }} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                <button onClick={() => onDelete(emp.id)} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
                             </td>
                         </tr>
                       );
@@ -392,10 +375,8 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       </div>
                   </div>
                   <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 z-10">
-                      <button onClick={() => setIsEditing(false)} disabled={isSaving} className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200" >Hủy</button>
-                      <button onClick={handleSave} disabled={isSaving} className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold flex items-center gap-2 shadow-md shadow-blue-200 disabled:opacity-70">
-                          {isSaving ? 'Đang lưu...' : <><Check size={18}/> Lưu Hồ Sơ</>}
-                      </button>
+                      <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200">Hủy</button>
+                      <button onClick={handleSave} className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold flex items-center gap-2 shadow-md shadow-blue-200"><Check size={18}/> Lưu Hồ Sơ</button>
                   </div>
               </div>
           </div>

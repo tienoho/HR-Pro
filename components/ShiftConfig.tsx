@@ -5,14 +5,13 @@ import { Clock, Plus, Trash2, Edit2, Moon, Sun, Save, CalendarCheck, Calendar, H
 
 interface ShiftConfigProps {
   shifts: Shift[];
-  onAddShift: (shift: Shift) => Promise<void>;
-  onUpdateShift: (shift: Shift) => Promise<void>;
-  onDeleteShift: (id: string) => Promise<void>;
+  onAddShift: (shift: Shift) => void;
+  onUpdateShift: (shift: Shift) => void;
+  onDeleteShift: (id: string) => void;
 }
 
 const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateShift, onDeleteShift }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [currentShift, setCurrentShift] = useState<Partial<Shift>>({});
 
   const handleEdit = (shift: Shift) => {
@@ -47,18 +46,11 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
     setIsEditing(true);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (currentShift.id && currentShift.code && currentShift.name && currentShift.effectiveFrom) {
-       setIsSaving(true);
-       try {
-           if (shifts.find(s => s.id === currentShift.id)) await onUpdateShift(currentShift as Shift);
-           else await onAddShift(currentShift as Shift);
-           setIsEditing(false);
-       } catch (error) {
-           console.error(error);
-       } finally {
-           setIsSaving(false);
-       }
+       if (shifts.find(s => s.id === currentShift.id)) onUpdateShift(currentShift as Shift);
+       else onAddShift(currentShift as Shift);
+       setIsEditing(false);
     } else alert("Vui lòng điền đầy đủ các thông tin bắt buộc.");
   };
 
@@ -144,60 +136,11 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
                     </div>
                 </div>
              </div>
-
-             {/* Work Days Selector */}
-             <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                <div className="flex items-center gap-2 mb-4"><CalendarCheck className="w-5 h-5 text-green-600" /> <span className="font-medium text-green-800">Ngày làm việc</span></div>
-                <div className="flex flex-wrap gap-2">
-                    {dayLabels.map(day => {
-                        const isSelected = currentShift.workDays?.includes(day.v);
-                        return (
-                            <button
-                                key={day.v}
-                                type="button"
-                                onClick={() => {
-                                    const current = currentShift.workDays || [];
-                                    const newDays = isSelected 
-                                        ? current.filter(d => d !== day.v)
-                                        : [...current, day.v].sort((a, b) => a - b);
-                                    setCurrentShift({...currentShift, workDays: newDays});
-                                }}
-                                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-                                    isSelected 
-                                        ? 'bg-green-600 text-white shadow-md' 
-                                        : 'bg-white text-slate-500 border border-slate-200 hover:border-green-300'
-                                }`}
-                            >
-                                {day.l}
-                            </button>
-                        );
-                    })}
-                </div>
-                <p className="text-[10px] text-green-700 mt-3 font-medium">Chọn các ngày trong tuần mà ca này áp dụng. Ngày không được chọn sẽ tự động tính là ngày nghỉ.</p>
-             </div>
-
-             {/* Saturday Half-day Toggle */}
-             <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                <label className="flex items-center gap-3 cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        checked={currentShift.isSaturdayHalfDay || false}
-                        onChange={e => setCurrentShift({...currentShift, isSaturdayHalfDay: e.target.checked})}
-                        className="w-5 h-5 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
-                    />
-                    <div>
-                        <span className="font-medium text-orange-800">Thứ 7 làm nửa ngày</span>
-                        <p className="text-[10px] text-orange-600">Nếu bật, thứ 7 sẽ chỉ tính công đến 12:00 (hoặc breakStart)</p>
-                    </div>
-                </label>
-             </div>
           </div>
         </div>
         <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3">
-            <button onClick={() => setIsEditing(false)} disabled={isSaving} className="px-4 py-2 text-slate-700 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200">Hủy</button>
-            <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 font-bold shadow-md shadow-blue-200 disabled:opacity-70">
-                {isSaving ? 'Đang lưu...' : <><Save size={18} /> Lưu cấu hình</>}
-            </button>
+            <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-700 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200">Hủy</button>
+            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 font-bold shadow-md shadow-blue-200"><Save size={18} /> Lưu cấu hình</button>
         </div>
       </div>
     );
@@ -226,11 +169,7 @@ const ShiftConfig: React.FC<ShiftConfigProps> = ({ shifts, onAddShift, onUpdateS
                             </div>
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => handleEdit(shift)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"><Edit2 size={16} /></button>
-                                <button onClick={async () => {
-                                    if (window.confirm(`Bạn có chắc chắn muốn xóa ca "${shift.name}"?\n\nHành động này không thể hoàn tác.`)) {
-                                        await onDeleteShift(shift.id);
-                                    }
-                                }} className="p-2 text-red-600 hover:bg-red-50 rounded-full"><Trash2 size={16} /></button>
+                                <button onClick={() => onDeleteShift(shift.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-full"><Trash2 size={16} /></button>
                             </div>
                         </div>
                         <div className="space-y-3">

@@ -23,47 +23,6 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
   const safeShifts = useMemo(() => Array.isArray(shifts) ? shifts.filter(s => s && s.id) : [], [shifts]);
   const safeSchedules = useMemo(() => Array.isArray(schedules) ? schedules.filter(s => s && s.employeeId) : [], [schedules]);
 
-  // OPTIMIZATION: Create HashMaps for O(1) lookups
-  const shiftMap = useMemo(() => {
-      const map = new Map<string, Shift>();
-      safeShifts.forEach(s => map.set(s.id, s));
-      return map;
-  }, [safeShifts]);
-
-  const scheduleMap = useMemo(() => {
-      const map = new Map<string, ShiftAssignment>();
-      safeSchedules.forEach(s => map.set(`${s.employeeId}_${s.date}`, s));
-      return map;
-  }, [safeSchedules]);
-
-  const requestMap = useMemo(() => {
-     // Map key: `${empId}_${date}` -> Request
-     // Simplified for "Approved" requests only for now since we only visual approved ones
-     // For range dates, this is tricky. We keep a list or specialized interval tree. 
-     // For N=1000, simple iteration might be OK, but cell logic calls this N*30 times.
-     // Let's create a "Day Map".
-     const map = new Map<string, AttendanceRequest>();
-     requests.forEach(r => {
-         if (r.status === RequestStatus.Approved) {
-             let d = new Date(r.startDate);
-             const end = new Date(r.endDate || r.startDate);
-             while (d <= end) {
-                 const key = `${r.employeeId}_${toLocalISODate(d)}`;
-                 // LIFO or FIFO? Latest request overrides?
-                 map.set(key, r);
-                 d.setDate(d.getDate() + 1);
-             }
-         }
-     });
-     return map;
-  }, [requests]);
-
-  const holidayMap = useMemo(() => {
-      const map = new Map<string, Holiday>();
-      holidays.forEach(h => map.set(h.date, h));
-      return map;
-  }, [holidays]);
-
   const daysInMonth = useMemo(() => {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -75,20 +34,18 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
   const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
   const getShiftForCell = (empId: string, date: Date) => {
-      const dateStr = toLocalISODate(date);
+      const dateStr = toLocalISODate(date); // FIXED: Use Local ISO Date
       const day = date.getDay();
       
-      // O(1) Lookup
-      const assignment = scheduleMap.get(`${empId}_${dateStr}`);
+      const assignment = safeSchedules.find(s => s.employeeId === empId && s.date === dateStr);
       
       let rawShiftId = '';
       if (assignment) {
           rawShiftId = assignment.shiftId;
       } else {
-          // Fallback to default shift
-          const emp = safeEmployees.find(e => e.id === empId); // Consider optimizing employee lookup too if needed, but safeEmployees is usually small enough (or map it)
+          const emp = safeEmployees.find(e => e.id === empId);
           if (emp && emp.defaultShiftId) {
-              const shift = shiftMap.get(emp.defaultShiftId);
+              const shift = safeShifts.find(s => s.id === emp.defaultShiftId);
               if (shift) {
                   const workDays = shift.workDays || [1,2,3,4,5];
                   if (workDays.includes(day)) {
@@ -99,7 +56,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       }
 
       if (!rawShiftId || rawShiftId === 'OFF') return '';
-      const shiftObj = shiftMap.get(rawShiftId);
+      const shiftObj = safeShifts.find(s => s.id === rawShiftId);
       if (shiftObj && day === 6 && shiftObj.isSaturdayHalfDay) return shiftObj.id + '_HALF';
       return rawShiftId;
   };
@@ -107,7 +64,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
   const getShiftColor = (shiftIdRaw: string) => {
       if (!shiftIdRaw || shiftIdRaw === 'OFF') return 'bg-slate-50 text-slate-300';
       const shiftId = shiftIdRaw.replace('_HALF', '');
-      const shift = shiftMap.get(shiftId);
+      const shift = safeShifts.find(s => s.id === shiftId);
       let baseColor = shift?.color || 'bg-slate-100 text-slate-800';
       return shiftIdRaw.includes('_HALF') ? baseColor + ' border-dashed border-2' : baseColor;
   };
@@ -115,18 +72,23 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
   const getShiftCode = (shiftIdRaw: string) => {
       if (!shiftIdRaw || shiftIdRaw === 'OFF') return '-';
       const shiftId = shiftIdRaw.replace('_HALF', '');
-      const shift = shiftMap.get(shiftId);
+      const shift = safeShifts.find(s => s.id === shiftId);
       return (shift?.code || '?') + (shiftIdRaw.includes('_HALF') ? ' (1/2)' : '');
   };
 
   const getApprovedRequest = (empId: string, date: Date) => {
-      const dateStr = toLocalISODate(date);
-      return requestMap.get(`${empId}_${dateStr}`);
+      const dateStr = toLocalISODate(date); // FIXED
+      return requests.find(r => 
+          r.employeeId === empId && 
+          r.status === RequestStatus.Approved && 
+          dateStr >= r.startDate &&
+          dateStr <= (r.endDate || r.startDate)
+      );
   };
   
   const getHoliday = (date: Date) => {
-      const dateStr = toLocalISODate(date); 
-      return holidayMap.get(dateStr);
+      const dateStr = toLocalISODate(date); // FIXED
+      return holidays.find(h => h.date === dateStr);
   };
 
   const handleCellClick = (empId: string, date: Date) => {
@@ -160,7 +122,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       setTimeout(() => setShowSavedToast(false), 3000);
   };
 
-  // Import schedule from Excel
+  // Fix: Added handleFileChange to resolve the "Cannot find name 'handleFileChange'" error
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
@@ -172,109 +134,12 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
                       const wb = XLSX.read(bstr, { type: 'binary' });
                       const wsName = wb.SheetNames[0];
                       const ws = wb.Sheets[wsName];
-                      const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' }) as any[][];
-                      
-                      if (data.length < 2) {
-                          alert('File không có dữ liệu hoặc sai định dạng.');
-                          return;
-                      }
-
-                      // First row is headers: [Mã NV, Tên NV, Date1, Date2, ...]
-                      const headers = data[0];
-                      const dateHeaders = headers.slice(2); // Skip 'Mã NV' and 'Tên NV'
-                      
-                      // Create shift code to ID map
-                      const shiftCodeMap = new Map<string, string>();
-                      safeShifts.forEach(s => shiftCodeMap.set(s.code.toUpperCase(), s.id));
-                      shiftCodeMap.set('OFF', 'OFF');
-                      shiftCodeMap.set('P', 'OFF'); // Leave/Phép treated as OFF
-                      
-                      // Create employee code to ID map
-                      const empCodeMap = new Map<string, string>();
-                      safeEmployees.forEach(e => empCodeMap.set(e.code.toUpperCase(), e.id));
-                      
-                      const newAssignments: ShiftAssignment[] = [];
-                      let importedCount = 0;
-                      let skippedCount = 0;
-                      const errors: string[] = [];
-                      
-                      // Process data rows
-                      data.slice(1).forEach((row, rowIdx) => {
-                          const empCode = String(row[0] || '').trim().toUpperCase();
-                          const empId = empCodeMap.get(empCode);
-                          
-                          if (!empId) {
-                              if (empCode) {
-                                  errors.push(`Dòng ${rowIdx + 2}: Mã NV "${empCode}" không tồn tại`);
-                                  skippedCount++;
-                              }
-                              return;
-                          }
-                          
-                          // Process each date column
-                          dateHeaders.forEach((dateHeader, colIdx) => {
-                              const cellValue = String(row[colIdx + 2] || '').trim().toUpperCase();
-                              if (!cellValue) return;
-                              
-                              // Parse date from header (expected format: YYYY-MM-DD)
-                              let dateStr = '';
-                              if (String(dateHeader).match(/^\d{4}-\d{2}-\d{2}$/)) {
-                                  dateStr = dateHeader;
-                              } else {
-                                  // Try to parse other date formats
-                                  const d = new Date(dateHeader);
-                                  if (!isNaN(d.getTime())) {
-                                      dateStr = toLocalISODate(d);
-                                  }
-                              }
-                              
-                              if (!dateStr) return;
-                              
-                              // Map cell value to shift ID
-                              let shiftId = shiftCodeMap.get(cellValue);
-                              if (!shiftId) {
-                                  // Try partial match
-                                  for (const [code, id] of shiftCodeMap) {
-                                      if (cellValue.includes(code) || code.includes(cellValue)) {
-                                          shiftId = id;
-                                          break;
-                                      }
-                                  }
-                              }
-                              
-                              if (shiftId) {
-                                  newAssignments.push({
-                                      employeeId: empId,
-                                      date: dateStr,
-                                      shiftId: shiftId
-                                  });
-                                  importedCount++;
-                              }
-                          });
-                      });
-                      
-                      if (importedCount > 0) {
-                          // Merge with existing schedules (overwrite duplicates)
-                          const existingMap = new Map<string, ShiftAssignment>();
-                          safeSchedules.forEach(s => existingMap.set(`${s.employeeId}_${s.date}`, s));
-                          newAssignments.forEach(s => existingMap.set(`${s.employeeId}_${s.date}`, s));
-                          
-                          onUpdateSchedule(Array.from(existingMap.values()));
-                          
-                          let msg = `Import thành công ${importedCount} lịch phân ca.`;
-                          if (skippedCount > 0) {
-                              msg += `\nBỏ qua ${skippedCount} dòng lỗi.`;
-                          }
-                          if (errors.length > 0 && errors.length <= 5) {
-                              msg += '\n\nChi tiết lỗi:\n' + errors.join('\n');
-                          }
-                          alert(msg);
-                      } else {
-                          alert('Không tìm thấy dữ liệu hợp lệ để import.\n\nVui lòng kiểm tra:\n- Cột đầu tiên là Mã NV\n- Hàng đầu tiên là ngày (YYYY-MM-DD)\n- Giá trị trong ô là mã ca (HC, CD, ...) hoặc OFF');
-                      }
+                      const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+                      console.log("Imported schedule data:", data);
+                      alert("Tính năng Import lịch làm việc đang được phát triển.");
                   } catch (error) {
                       console.error("Import error:", error);
-                      alert("Lỗi đọc file Excel. Vui lòng kiểm tra định dạng file.");
+                      alert("Lỗi đọc file.");
                   }
               }
           };

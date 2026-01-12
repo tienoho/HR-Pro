@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { User, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (username: string, password: string) => Promise<boolean>;
+  onLogin: (u: string, p: string) => boolean;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -12,24 +12,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    try {
-        const success = await onLogin(username, password);
+    // Simulate network delay for better UX feeling
+    setTimeout(() => {
+        const success = onLogin(username, password);
         if (!success) {
             setError('Tên đăng nhập hoặc mật khẩu không đúng');
+            setIsLoading(false);
         }
         // If success, parent component unmounts this, so no need to set loading false
-    } catch (err) {
-        setError('Không thể kết nối đến máy chủ. Vui lòng thử lại.');
-    } finally {
-        setIsLoading(false);
-    }
+    }, 600);
   };
-
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">

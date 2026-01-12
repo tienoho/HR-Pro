@@ -1,10 +1,11 @@
+
 services:
   - type: web
     name: hr-pro-attendance
     env: node
     plan: free
-    buildCommand: "yarn && yarn build"
-    startCommand: "yarn start"
+    buildCommand: "npm install"
+    startCommand: "npm start"
     envVars:
       - key: NODE_VERSION
         value: 18.17.0

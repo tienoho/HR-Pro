@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   CalendarClock, 
@@ -28,24 +28,18 @@ import ShiftScheduler from './components/ShiftScheduler';
 import RequestManager from './components/RequestManager';
 import HolidayManager from './components/HolidayManager';
 import Login from './components/Login';
-import ToastContainer from './components/ToastContainer';
 
 import { Shift, Employee, AttendanceLog, ShiftAssignment, AttendanceRequest, Holiday } from './types';
-import { User } from './types/api';
 import { calculateTimesheet } from './utils/attendanceEngine';
 import { storage } from './services/storage';
-import { authService } from './services/authService';
-import { toast, logError } from './services/errorHandler';
 
 // Simple navigation state
 type View = 'dashboard' | 'employees' | 'shifts' | 'scheduler' | 'requests' | 'holidays' | 'import' | 'rawdata' | 'timesheet';
 
 const App: React.FC = () => {
-  // Authentication State - Check for existing valid token on load
-  const [isAuthenticated, setIsAuthenticated] = useState(() => authService.hasValidToken());
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
 
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -88,33 +82,11 @@ const App: React.FC = () => {
       }
   };
 
-  // Initialize auth state on mount
   useEffect(() => {
-      const initAuth = async () => {
-          try {
-              const user = await authService.initialize();
-              if (user) {
-                  setCurrentUser(user);
-                  setIsAuthenticated(true);
-              } else {
-                  setIsAuthenticated(false);
-              }
-          } catch (error) {
-              logError(error, 'Auth Init');
-              setIsAuthenticated(false);
-          } finally {
-              setIsInitializing(false);
-          }
-      };
-      initAuth();
-  }, []);
-
-  // Fetch data when authenticated
-  useEffect(() => {
-      if (isAuthenticated && !isInitializing) {
+      if (isAuthenticated) {
           fetchAllData();
       }
-  }, [isAuthenticated, isInitializing]);
+  }, [isAuthenticated]);
 
   // Derived State: Timesheet
   const timesheetData = useMemo(() => {
@@ -128,200 +100,78 @@ const App: React.FC = () => {
   }, [employees, shifts, logs, schedules, requests, holidays, viewDate, isLoadingData]);
 
   // Auth Handlers
-  const handleLogin = useCallback(async (username: string, password: string): Promise<boolean> => {
-      try {
-          const result = await authService.login(username, password);
-          setCurrentUser(result.user);
+  const handleLogin = (u: string, p: string) => {
+      if (u === 'admin' && p === 'admin123') {
           setIsAuthenticated(true);
-          toast.success(`Xin chào, ${result.user.fullName || result.user.username}!`);
           return true;
-      } catch (error) {
-          logError(error, 'Login');
-          return false;
       }
-  }, []);
+      return false;
+  };
 
-  const handleLogout = useCallback(() => {
-      authService.logout();
+  const handleLogout = () => {
       setIsAuthenticated(false);
-      setCurrentUser(null);
       setCurrentView('dashboard');
-      // Clear data state
-      setEmployees([]);
-      setShifts([]);
-      setLogs([]);
-      setSchedules([]);
-      setRequests([]);
-      setHolidays([]);
-  }, []);
+  };
 
   const handleResetData = async () => {
       if(window.confirm('CẢNH BÁO: Hành động này sẽ XÓA TOÀN BỘ dữ liệu hiện tại và khôi phục về dữ liệu mẫu ban đầu. \n\nBạn có chắc chắn không?')) {
           setIsLoadingData(true);
-          try {
-              await storage.clearAllData();
-              await fetchAllData(); // Reload
-              toast.success("Đã reset dữ liệu thành công");
-          } catch (e) {
-              toast.fromError(e, "Lỗi reset dữ liệu");
-          } finally {
-              setIsLoadingData(false); // fetchAllData handles inside mostly, but safety here
-          }
+          await storage.clearAllData();
+          await fetchAllData(); // Reload
       }
   };
 
   // --- ASYNC HANDLERS (Connect to StorageService) ---
   
   const handleAddShift = async (newShift: Shift) => {
-      try {
-          const saved = await storage.saveShift(newShift);
-          setShifts(prev => [...prev, saved]);
-          toast.success("Thêm ca mới thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi thêm ca");
-      }
+      const saved = await storage.saveShift(newShift);
+      setShifts(prev => [...prev, saved]);
   };
   const handleUpdateShift = async (updatedShift: Shift) => {
-      try {
-          await storage.saveShift(updatedShift);
-          setShifts(prev => prev.map(s => s.id === updatedShift.id ? updatedShift : s));
-          toast.success("Cập nhật ca thành công");
-      } catch (e) {
-         toast.fromError(e, "Lỗi cập nhật ca");
-      }
+      await storage.saveShift(updatedShift);
+      setShifts(prev => prev.map(s => s.id === updatedShift.id ? updatedShift : s));
   };
   const handleDeleteShift = async (id: string) => {
-      try {
-          await storage.deleteShift(id);
-          setShifts(prev => prev.filter(s => s.id !== id));
-          toast.success("Xóa ca thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi xóa ca");
-      }
+      await storage.deleteShift(id);
+      setShifts(prev => prev.filter(s => s.id !== id));
   };
 
   const handleAddEmployee = async (emp: Employee) => {
-      try {
-          const saved = await storage.saveEmployee(emp);
-          setEmployees(prev => [...prev, saved]);
-          toast.success("Thêm nhân viên thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi thêm nhân viên");
-          throw e;
-      }
+      const saved = await storage.saveEmployee(emp);
+      setEmployees(prev => [...prev, saved]);
   };
   const handleUpdateEmployee = async (emp: Employee) => {
-      try {
-          await storage.saveEmployee(emp);
-          setEmployees(prev => prev.map(e => e.id === emp.id ? emp : e));
-          toast.success("Cập nhật nhân viên thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi cập nhật nhân viên");
-          throw e;
-      }
+      await storage.saveEmployee(emp);
+      setEmployees(prev => prev.map(e => e.id === emp.id ? emp : e));
   };
   const handleDeleteEmployee = async (id: string) => {
-      try {
-          await storage.deleteEmployee(id);
-          setEmployees(prev => prev.filter(e => e.id !== id));
-          toast.success("Xóa nhân viên thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi xóa nhân viên");
-      }
+      await storage.deleteEmployee(id);
+      setEmployees(prev => prev.filter(e => e.id !== id));
   };
 
   const handleAddLog = async (log: AttendanceLog) => {
-      try {
-          await storage.addSingleLog(log);
-          setLogs(prev => [...prev, log]);
-          toast.success("Thêm chấm công thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi thêm chấm công");
-      }
+      await storage.addSingleLog(log);
+      setLogs(prev => [...prev, log]);
   };
   
   const handleImportLogs = async (newLogs: AttendanceLog[]) => {
-      setIsLoadingData(true); 
-      try {
-          await storage.saveLogs(newLogs);
-          setLogs(prev => [...prev, ...newLogs]);
-          toast.success(`Import thành công ${newLogs.length} bản ghi`);
-      } catch (e) {
-          toast.fromError(e, "Lỗi import dữ liệu");
-      } finally {
-          setIsLoadingData(false);
-      }
+      setIsLoadingData(true); // Large operation
+      await storage.saveLogs(newLogs);
+      setLogs(prev => [...prev, ...newLogs]);
+      setIsLoadingData(false);
   };
   
   const handleUpdateSchedule = async (newSchedules: ShiftAssignment[]) => {
-      try {
-          await storage.saveSchedules(newSchedules);
-          setSchedules(newSchedules);
-          toast.success("Lưu lịch phân ca thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi lưu lịch");
-      }
+      await storage.saveSchedules(newSchedules);
+      setSchedules(newSchedules);
   };
-  
-
-  // --- Requests CRUD ---
-  const handleAddRequest = async (req: AttendanceRequest) => {
-    try {
-        const saved = await storage.saveRequest(req);
-        setRequests(prev => [...prev, saved]);
-        toast.success("Tạo đơn thành công");
-    } catch (e) {
-        toast.fromError(e, "Lỗi tạo đơn");
-    }
+  const handleUpdateRequests = async (newRequests: AttendanceRequest[]) => {
+      await storage.saveRequests(newRequests);
+      setRequests(newRequests);
   };
-  const handleUpdateRequest = async (req: AttendanceRequest) => {
-    try {
-        const saved = await storage.saveRequest(req);
-        setRequests(prev => prev.map(r => r.id === req.id ? saved : r));
-        toast.success("Cập nhật đơn thành công");
-    } catch (e) {
-        toast.fromError(e, "Lỗi cập nhật đơn");
-    }
-  };
-  const handleDeleteRequest = async (id: string) => {
-    try {
-        await storage.deleteRequest(id);
-        setRequests(prev => prev.filter(r => r.id !== id));
-        toast.success("Xóa đơn thành công");
-    } catch (e) {
-        toast.fromError(e, "Lỗi xóa đơn");
-    }
-  };
-  const handleReviewRequest = async (id: string, status: 'APPROVED' | 'REJECTED') => {
-      try {
-          await storage.reviewRequest(id, status);
-          setRequests(prev => prev.map(r => r.id === id ? { ...r, status: status as any } : r));
-          toast.success(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} đơn`);
-      } catch (e) {
-          toast.fromError(e, "Lỗi duyệt đơn");
-      }
-  };
-
-  // --- Holidays CRUD ---
-  const handleAddHoliday = async (h: Holiday) => {
-      try {
-          const saved = await storage.saveHoliday(h);
-          setHolidays(prev => [...prev, saved]);
-          // Don't toast for bulk operations/loops to avoid spam, or handle in component
-          // But for single add, it's fine.
-      } catch (e) {
-          toast.fromError(e, "Lỗi thêm ngày lễ");
-          throw e; 
-      }
-  };
-  const handleDeleteHoliday = async (id: string) => {
-      try {
-          await storage.deleteHoliday(id);
-          setHolidays(prev => prev.filter(h => h.id !== id));
-          toast.success("Xóa ngày lễ thành công");
-      } catch (e) {
-          toast.fromError(e, "Lỗi xóa ngày lễ");
-      }
+  const handleUpdateHolidays = async (newHolidays: Holiday[]) => {
+      await storage.saveHolidays(newHolidays);
+      setHolidays(newHolidays);
   };
 
   const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -380,18 +230,14 @@ const App: React.FC = () => {
                 <RequestManager 
                     requests={requests}
                     employees={employees}
-                    onAdd={handleAddRequest}
-                    onUpdate={handleUpdateRequest}
-                    onDelete={handleDeleteRequest}
-                    onReview={handleReviewRequest}
+                    onUpdateRequests={handleUpdateRequests}
                 />
             );
         case 'holidays':
             return (
                 <HolidayManager 
                     holidays={holidays}
-                    onAdd={handleAddHoliday}
-                    onDelete={handleDeleteHoliday}
+                    onUpdateHolidays={handleUpdateHolidays}
                 />
             );
         case 'import':
@@ -490,7 +336,6 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <ToastContainer />
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-40">
             <div className="flex items-center gap-4">
                 <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600">
