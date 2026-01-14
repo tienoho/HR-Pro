@@ -78,11 +78,17 @@ export const calculateTimesheet = (
     .map(l => ({ ...l, dateObj: parseLogTime(l.timestamp) }))
     .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
+  // Optimization: Create a lookup map for schedules to avoid O(N) search inside loops
+  const scheduleMap = new Map<string, ShiftAssignment>();
+  validSchedules.forEach(s => {
+      scheduleMap.set(`${s.employeeId}_${s.date}`, s);
+  });
+
   const getShiftForDate = (emp: Employee, dateStr: string, dateObj: Date): Shift | null => {
     let rawShift: Shift | undefined;
     const dayOfWeek = dateObj.getDay(); 
 
-    const assignment = validSchedules.find(s => s.employeeId === emp.id && s.date === dateStr);
+    const assignment = scheduleMap.get(`${emp.id}_${dateStr}`);
     
     if (assignment) {
       if (assignment.shiftId === 'OFF') return null;
