@@ -23,6 +23,19 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
   const safeShifts = useMemo(() => Array.isArray(shifts) ? shifts.filter(s => s && s.id) : [], [shifts]);
   const safeSchedules = useMemo(() => Array.isArray(schedules) ? schedules.filter(s => s && s.employeeId) : [], [schedules]);
 
+  const scheduleMap = useMemo(() => {
+      const map = new Map<string, ShiftAssignment>();
+      safeSchedules.forEach(s => {
+          if (s.employeeId && s.date) {
+              const key = `${s.employeeId}_${s.date}`;
+              if (!map.has(key)) {
+                  map.set(key, s);
+              }
+          }
+      });
+      return map;
+  }, [safeSchedules]);
+
   const daysInMonth = useMemo(() => {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -37,7 +50,7 @@ const ShiftScheduler: React.FC<ShiftSchedulerProps> = ({ employees, shifts, sche
       const dateStr = toLocalISODate(date); // FIXED: Use Local ISO Date
       const day = date.getDay();
       
-      const assignment = safeSchedules.find(s => s.employeeId === empId && s.date === dateStr);
+      const assignment = scheduleMap.get(`${empId}_${dateStr}`);
       
       let rawShiftId = '';
       if (assignment) {
