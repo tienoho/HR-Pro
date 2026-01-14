@@ -98,6 +98,10 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       // Skip header row
                       const rows = data.slice(1);
                       
+                      // Create lookup maps for faster searching
+                      const codeToEmployeeMap = new Map(employees.map(e => [e.code, e]));
+                      const timekeepingIdToEmployeeMap = new Map(employees.map(e => [e.timekeepingId, e]));
+
                       rows.forEach(row => {
                           const code = row[0] ? String(row[0]).trim() : '';
                           const timekeepingId = row[1] ? String(row[1]).trim() : '';
@@ -105,7 +109,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                           
                           if(code && name && timekeepingId) {
                               // Identify if employee already exists by code or machine ID
-                              const existing = employees.find(e => e.code === code || e.timekeepingId === timekeepingId);
+                              const existing = codeToEmployeeMap.get(code) || timekeepingIdToEmployeeMap.get(timekeepingId);
                               
                               let shiftId = fallbackShiftId;
                               if (row[6]) {
