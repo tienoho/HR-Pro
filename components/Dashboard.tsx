@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { Users, AlertTriangle, CheckCircle, Clock, CalendarOff, PartyPopper } from 'lucide-react';
 import { TimesheetRow, AttendanceStatus, Employee } from '../types';
@@ -36,6 +36,16 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
   const today = new Date();
   const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+  const [sentReminders, setSentReminders] = useState<Set<string>>(new Set());
+
+  const handleRemind = (id: string) => {
+    setSentReminders((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+
   // 1. Calculate Daily Stats (Today)
   const dailyStats = useMemo(() => {
       let late = 0;
@@ -45,7 +55,7 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
       let leave = 0;
       let holiday = 0;
       let missingPunch = 0;
-      let lateList: {name: string, dept: string, minutes: number}[] = [];
+      let lateList: {id: string, name: string, dept: string, minutes: number}[] = [];
 
       if (!timesheetData || !Array.isArray(timesheetData)) return { late, absent, present, off, leave, holiday, missingPunch, lateList };
 
@@ -70,7 +80,12 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
           
           if (record.status.includes(AttendanceStatus.Late)) {
               late++;
-              lateList.push({ name: row.employee?.name || 'Unknown', dept: row.employee?.department || 'Unknown', minutes: record.lateMinutes });
+              lateList.push({
+                id: row.employee?.id || 'unknown',
+                name: row.employee?.name || 'Unknown',
+                dept: row.employee?.department || 'Unknown',
+                minutes: record.lateMinutes
+              });
           }
           
           // Present includes Valid, Late, or Partial Leave (if they checked in)
@@ -282,7 +297,22 @@ const Dashboard: React.FC<DashboardProps> = ({ timesheetData, employees }) => {
                     </div>
                     <div className="flex items-center gap-4">
                         <span className="text-sm font-bold text-red-600">Trễ {item.minutes} phút</span>
-                        <button className="px-3 py-1 text-xs border border-slate-300 rounded hover:bg-white bg-slate-50 text-slate-700">Gửi nhắc nhở</button>
+                        <button
+                            onClick={() => handleRemind(item.id)}
+                            disabled={sentReminders.has(item.id)}
+                            aria-label={sentReminders.has(item.id) ? `Đã gửi nhắc nhở cho ${item.name}` : `Gửi nhắc nhở cho ${item.name}`}
+                            className={`px-3 py-1 text-xs border rounded transition-colors flex items-center gap-1 ${
+                                sentReminders.has(item.id)
+                                ? "bg-green-50 text-green-600 border-green-200 cursor-default"
+                                : "border-slate-300 hover:bg-white bg-slate-50 text-slate-700"
+                            }`}
+                        >
+                            {sentReminders.has(item.id) ? (
+                                <>
+                                    <CheckCircle size={12} /> Đã gửi
+                                </>
+                            ) : "Gửi nhắc nhở"}
+                        </button>
                     </div>
                 </div>
             )) : (
