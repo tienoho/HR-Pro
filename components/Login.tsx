@@ -45,10 +45,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5 ml-1">Tài khoản</label>
+                    <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1.5 ml-1">Tài khoản</label>
                     <div className="relative group">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
                         <input 
+                            id="username"
                             type="text" 
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
@@ -60,11 +61,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5 ml-1">Mật khẩu</label>
+                    <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5 ml-1">Mật khẩu</label>
                     <div className="relative group">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
                         <input 
-                            type={showPassword ? "text" : "password"}
+                            id="password"
+                            type={showPassword ? 'text' : 'password'}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-slate-50 focus:bg-white"
