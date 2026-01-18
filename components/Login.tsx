@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, Lock, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (u: string, p: string) => boolean;
@@ -9,6 +9,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -63,13 +64,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <div className="relative group">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
                         <input 
-                            type="password" 
+                            type={showPassword ? "text" : "password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-slate-50 focus:bg-white"
+                            className="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-slate-50 focus:bg-white"
                             placeholder="••••••••"
                             required
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 focus:outline-none focus:text-blue-600 transition-colors p-1"
+                            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                            title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                        >
+                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
                     </div>
                 </div>
 
