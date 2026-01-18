@@ -22,7 +22,13 @@ const RawDataView: React.FC<RawDataViewProps> = ({ logs, employees, onAddLog }) 
   const [newLogDate, setNewLogDate] = useState('');
   const [newLogTime, setNewLogTime] = useState('');
 
-  const getEmpByMachineId = (mid: string) => employees.find(e => e.timekeepingId === mid);
+  const employeeMap = useMemo(() => {
+    const map = new Map<string, Employee>();
+    employees.forEach(e => map.set(e.timekeepingId, e));
+    return map;
+  }, [employees]);
+
+  const getEmpByMachineId = (mid: string) => employeeMap.get(mid);
 
   // FIXED: Logic nhận diện trùng lặp thông minh hơn
   // Nếu cùng 1 nhân viên quét 2 lần cách nhau dưới 60 giây -> Đánh dấu là trùng
@@ -57,7 +63,7 @@ const RawDataView: React.FC<RawDataViewProps> = ({ logs, employees, onAddLog }) 
         const matchesDate = !filterDate || l.timestamp.startsWith(filterDate);
         return matchesEmp && matchesDate;
     });
-  }, [processedLogs, filterEmp, filterDate, employees]);
+  }, [processedLogs, filterEmp, filterDate, employeeMap]);
 
   const sortedLogs = useMemo(() => {
       const sorted = [...filtered];
@@ -72,7 +78,7 @@ const RawDataView: React.FC<RawDataViewProps> = ({ logs, employees, onAddLog }) 
           return 0;
       });
       return sorted;
-  }, [filtered, sortConfig, employees]);
+  }, [filtered, sortConfig, employeeMap]);
 
   const handleManualSubmit = () => {
       if(!newLogEmpId || !newLogDate || !newLogTime) return;

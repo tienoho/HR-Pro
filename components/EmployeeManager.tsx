@@ -24,6 +24,12 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
     setIsEditing(true);
   };
 
+  const confirmDelete = (emp: Employee) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa nhân viên ${emp.name}? Hành động này không thể hoàn tác.`)) {
+      onDelete(emp.id);
+    }
+  };
+
   const handleCreate = () => {
     setCurrentEmp({
       id: Date.now().toString(),
@@ -98,6 +104,10 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       // Skip header row
                       const rows = data.slice(1);
                       
+                      // Create lookup maps for faster searching
+                      const codeToEmployeeMap = new Map(employees.map(e => [e.code, e]));
+                      const timekeepingIdToEmployeeMap = new Map(employees.map(e => [e.timekeepingId, e]));
+
                       rows.forEach(row => {
                           const code = row[0] ? String(row[0]).trim() : '';
                           const timekeepingId = row[1] ? String(row[1]).trim() : '';
@@ -105,7 +115,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                           
                           if(code && name && timekeepingId) {
                               // Identify if employee already exists by code or machine ID
-                              const existing = employees.find(e => e.code === code || e.timekeepingId === timekeepingId);
+                              const existing = codeToEmployeeMap.get(code) || timekeepingIdToEmployeeMap.get(timekeepingId);
                               
                               let shiftId = fallbackShiftId;
                               if (row[6]) {
@@ -202,6 +212,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                 onClick={handleDownloadTemplate}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-600 hover:text-blue-600 hover:border-blue-300 text-sm font-medium shadow-sm transition-colors"
                 title="Tải file mẫu nhập liệu"
+                aria-label="Tải file mẫu nhập liệu"
              >
                  <Download size={18} /> <span className="hidden sm:inline">File Mẫu</span>
              </button>
@@ -279,8 +290,22 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                                 </span>
                             </td>
                             <td className="px-6 py-3 text-right">
-                                <button onClick={() => handleEdit(emp)} className="text-blue-600 hover:text-blue-800 mr-3 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16}/></button>
-                                <button onClick={() => onDelete(emp.id)} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                <button
+                                    onClick={() => handleEdit(emp)}
+                                    className="text-blue-600 hover:text-blue-800 mr-3 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Sửa thông tin"
+                                    aria-label={`Sửa nhân viên ${emp.name}`}
+                                >
+                                    <Edit2 size={16}/>
+                                </button>
+                                <button
+                                    onClick={() => confirmDelete(emp)}
+                                    className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Xóa nhân viên"
+                                    aria-label={`Xóa nhân viên ${emp.name}`}
+                                >
+                                    <Trash2 size={16}/>
+                                </button>
                             </td>
                         </tr>
                       );
@@ -303,7 +328,11 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       <h3 className="font-bold text-lg text-slate-800">
                           {currentEmp.id && employees.find(e => e.id === currentEmp.id) ? 'Cập nhật Nhân sự' : 'Thêm mới Nhân sự'}
                       </h3>
-                      <button onClick={() => setIsEditing(false)} className="text-slate-500 hover:text-slate-700 p-1 hover:bg-slate-100 rounded">
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        className="text-slate-500 hover:text-slate-700 p-1 hover:bg-slate-100 rounded"
+                        aria-label="Đóng"
+                      >
                         <Plus className="rotate-45" size={24}/>
                       </button>
                   </div>

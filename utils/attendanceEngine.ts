@@ -93,7 +93,7 @@ export const calculateTimesheet = (
     let rawShift: Shift | undefined;
     const dayOfWeek = dateObj.getDay(); 
 
-    const assignment = validSchedules.find(s => s.employeeId === emp.id && s.date === dateStr);
+    const assignment = scheduleMap.get(`${emp.id}_${dateStr}`);
     
     if (assignment) {
       if (assignment.shiftId === 'OFF') return null;
