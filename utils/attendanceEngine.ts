@@ -78,10 +78,15 @@ export const calculateTimesheet = (
     .map(l => ({ ...l, dateObj: parseLogTime(l.timestamp) }))
     .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
-  // Optimization: Create a lookup map for schedules to avoid O(N) search inside loops
-  const scheduleMap = new Map<string, ShiftAssignment>();
-  validSchedules.forEach(s => {
-      scheduleMap.set(`${s.employeeId}_${s.date}`, s);
+  // Optimization: Group logs by timekeepingId to avoid filtering the entire array for each day
+  const logsByEmployee = new Map<string, typeof processedLogs>();
+  processedLogs.forEach(log => {
+    const logs = logsByEmployee.get(log.timekeepingId);
+    if (logs) {
+      logs.push(log);
+    } else {
+      logsByEmployee.set(log.timekeepingId, [log]);
+    }
   });
 
   const getShiftForDate = (emp: Employee, dateStr: string, dateObj: Date): Shift | null => {
@@ -137,6 +142,9 @@ export const calculateTimesheet = (
   return validEmployees.map(emp => {
     const records: { [date: string]: DailyRecord } = {};
     const summary = { totalWorkHours: 0, totalOT: 0, totalLate: 0, totalAbsent: 0, totalLeaves: 0, totalLeaveHours: 0, totalHolidays: 0 };
+
+    // Get pre-filtered logs for this employee
+    const employeeLogs = logsByEmployee.get(emp.timekeepingId) || [];
 
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDayDate = new Date(year, monthIdx, day);
@@ -221,8 +229,8 @@ export const calculateTimesheet = (
               windowStart = new Date(shiftStartDateTime.getTime() - 4 * 60 * 60 * 1000);
               windowEnd = new Date(shiftEndDateTime.getTime() + 4 * 60 * 60 * 1000);
 
-              const relevantLogs = processedLogs.filter(l => 
-                  l.timekeepingId === emp.timekeepingId &&
+              // Optimized: Filter from the smaller employee-specific array
+              const relevantLogs = employeeLogs.filter(l =>
                   l.dateObj >= windowStart &&
                   l.dateObj <= windowEnd
               );
@@ -341,8 +349,8 @@ export const calculateTimesheet = (
           windowStart.setHours(4, 0, 0, 0);
           windowEnd.setDate(windowEnd.getDate() + 1); 
           windowEnd.setHours(3, 59, 59, 0);
-          const relevantLogs = processedLogs.filter(l => 
-            l.timekeepingId === emp.timekeepingId &&
+          // Optimized: Filter from the smaller employee-specific array
+          const relevantLogs = employeeLogs.filter(l =>
             l.dateObj >= windowStart &&
             l.dateObj <= windowEnd
           );
