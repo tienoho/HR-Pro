@@ -76,8 +76,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus:text-blue-500 transition-colors"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 focus:outline-none focus:text-blue-600 transition-colors p-1"
                             aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                            title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                         >
                             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                         </button>
