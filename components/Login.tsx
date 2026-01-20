@@ -45,7 +45,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                    <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1.5 ml-1">Tài khoản</label>
+                    <label htmlFor="username" className="block text-sm font-medium text-slate-700 mb-1.5 ml-1">
+                        Tài khoản <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative group">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
                         <input 
@@ -56,12 +58,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-slate-50 focus:bg-white"
                             placeholder="Nhập tên đăng nhập"
                             required
+                            aria-invalid={!!error}
+                            aria-describedby={error ? "login-error" : undefined}
                         />
                     </div>
                 </div>
 
                 <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5 ml-1">Mật khẩu</label>
+                    <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5 ml-1">
+                        Mật khẩu <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative group">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
                         <input 
@@ -72,6 +78,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             className="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-slate-50 focus:bg-white"
                             placeholder="••••••••"
                             required
+                            aria-invalid={!!error}
+                            aria-describedby={error ? "login-error" : undefined}
                         />
                         <button
                             type="button"
@@ -86,7 +94,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
 
                 {error && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2 animate-in slide-in-from-left-1">
+                    <div
+                        id="login-error"
+                        className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2 animate-in slide-in-from-left-1"
+                        role="alert"
+                    >
                         <ShieldCheck size={16} /> {error}
                     </div>
                 )}
