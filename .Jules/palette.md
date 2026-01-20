@@ -12,3 +12,6 @@
 ## 2025-01-28 - [Form Validation Accessibility]
 **Learning:** Login form errors were displayed visually but not programmatically linked to the inputs. Screen reader users wouldn't know which field was invalid or why. Also, required fields lacked visual indicators.
 **Action:** Use `aria-invalid` on inputs and `aria-describedby` pointing to the error message ID. Visually mark required fields with an asterisk.
+## 2025-01-27 - [Invisible Focusable Elements]
+**Learning:** Elements hidden with `opacity-0` for hover effects (like delete buttons in lists) remain in the tab order but are invisible when focused, confusing keyboard users. Playwright also considers them "not actionable".
+**Action:** Always add `focus:opacity-100` to elements that are hidden by default but reachable via keyboard, ensuring they become visible when they receive focus.

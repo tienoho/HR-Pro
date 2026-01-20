@@ -196,8 +196,9 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onUpdateHolid
                     </h3>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Ngày</label>
+                            <label htmlFor="holiday-date" className="block text-sm font-medium text-slate-700 mb-1">Ngày</label>
                             <input 
+                                id="holiday-date"
                                 type="date" 
                                 value={newDate} 
                                 onChange={e => setNewDate(e.target.value)} 
@@ -205,8 +206,9 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onUpdateHolid
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Tên ngày lễ</label>
+                            <label htmlFor="holiday-name" className="block text-sm font-medium text-slate-700 mb-1">Tên ngày lễ</label>
                             <input 
+                                id="holiday-name"
                                 type="text" 
                                 value={newName} 
                                 onChange={e => setNewName(e.target.value)} 
@@ -248,9 +250,9 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onUpdateHolid
                         Danh sách năm {yearFilter}
                     </h3>
                     <div className="flex items-center gap-2">
-                        <button onClick={() => setYearFilter(y => y - 1)} className="p-1 hover:bg-slate-200 rounded"><span className="text-xs font-bold">&lt;</span></button>
+                        <button onClick={() => setYearFilter(y => y - 1)} className="p-1 hover:bg-slate-200 rounded" aria-label="Năm trước"><span className="text-xs font-bold">&lt;</span></button>
                         <span className="font-mono font-bold text-lg">{yearFilter}</span>
-                        <button onClick={() => setYearFilter(y => y + 1)} className="p-1 hover:bg-slate-200 rounded"><span className="text-xs font-bold">&gt;</span></button>
+                        <button onClick={() => setYearFilter(y => y + 1)} className="p-1 hover:bg-slate-200 rounded" aria-label="Năm sau"><span className="text-xs font-bold">&gt;</span></button>
                     </div>
                 </div>
 
@@ -277,7 +279,9 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({ holidays, onUpdateHolid
                                         <td className="px-6 py-3 text-right">
                                             <button 
                                                 onClick={() => handleDelete(h.id)}
-                                                className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all"
+                                                aria-label={`Xóa ngày lễ ${h.name}`}
+                                                title="Xóa"
                                             >
                                                 <Trash2 size={16}/>
                                             </button>
