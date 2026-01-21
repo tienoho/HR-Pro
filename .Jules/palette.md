@@ -15,3 +15,7 @@
 ## 2025-01-27 - [Invisible Focusable Elements]
 **Learning:** Elements hidden with `opacity-0` for hover effects (like delete buttons in lists) remain in the tab order but are invisible when focused, confusing keyboard users. Playwright also considers them "not actionable".
 **Action:** Always add `focus:opacity-100` to elements that are hidden by default but reachable via keyboard, ensuring they become visible when they receive focus.
+
+## 2025-01-28 - [Search Input UX]
+**Learning:** Search inputs (like in `EmployeeManager`) require manual deletion of text to reset, which is tedious, especially on touch screens or for long queries.
+**Action:** Implement a "Clear" (X) button inside the input that appears when there is text. Ensure it is keyboard accessible and has an `aria-label`. Use `pr-10` on the input to prevent text overlap.
