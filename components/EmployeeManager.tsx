@@ -342,20 +342,20 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                           <h4 className="font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><User size={16}/> Thông tin cá nhân</h4>
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Mã nhân viên (Human ID) <span className="text-red-500">*</span></label>
-                          <input type="text" value={currentEmp.code} onChange={e => setCurrentEmp({...currentEmp, code: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="NV001" />
+                          <label htmlFor="emp-code" className="block text-sm font-medium text-slate-700 mb-1">Mã nhân viên (Human ID) <span className="text-red-500">*</span></label>
+                          <input id="emp-code" type="text" value={currentEmp.code} onChange={e => setCurrentEmp({...currentEmp, code: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="NV001" required />
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Mã chấm công (Machine ID) <span className="text-red-500">*</span></label>
-                          <input type="text" value={currentEmp.timekeepingId} onChange={e => setCurrentEmp({...currentEmp, timekeepingId: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="101" />
+                          <label htmlFor="emp-timekeepingId" className="block text-sm font-medium text-slate-700 mb-1">Mã chấm công (Machine ID) <span className="text-red-500">*</span></label>
+                          <input id="emp-timekeepingId" type="text" value={currentEmp.timekeepingId} onChange={e => setCurrentEmp({...currentEmp, timekeepingId: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="101" required />
                       </div>
                       <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Họ và tên <span className="text-red-500">*</span></label>
-                          <input type="text" value={currentEmp.name} onChange={e => setCurrentEmp({...currentEmp, name: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nguyễn Văn A" />
+                          <label htmlFor="emp-name" className="block text-sm font-medium text-slate-700 mb-1">Họ và tên <span className="text-red-500">*</span></label>
+                          <input id="emp-name" type="text" value={currentEmp.name} onChange={e => setCurrentEmp({...currentEmp, name: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nguyễn Văn A" required />
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Phòng ban</label>
-                          <select value={currentEmp.department} onChange={e => setCurrentEmp({...currentEmp, department: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                          <label htmlFor="emp-department" className="block text-sm font-medium text-slate-700 mb-1">Phòng ban</label>
+                          <select id="emp-department" value={currentEmp.department} onChange={e => setCurrentEmp({...currentEmp, department: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                               <option value="IT">IT</option>
                               <option value="HR">HR</option>
                               <option value="Kho">Kho</option>
@@ -367,16 +367,16 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                           </select>
                       </div>
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Chức danh</label>
-                          <input type="text" value={currentEmp.position} onChange={e => setCurrentEmp({...currentEmp, position: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                          <label htmlFor="emp-position" className="block text-sm font-medium text-slate-700 mb-1">Chức danh</label>
+                          <input id="emp-position" type="text" value={currentEmp.position} onChange={e => setCurrentEmp({...currentEmp, position: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Ngày vào làm</label>
-                          <input type="date" value={currentEmp.joinDate} onChange={e => setCurrentEmp({...currentEmp, joinDate: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                          <label htmlFor="emp-joinDate" className="block text-sm font-medium text-slate-700 mb-1">Ngày vào làm</label>
+                          <input id="emp-joinDate" type="date" value={currentEmp.joinDate} onChange={e => setCurrentEmp({...currentEmp, joinDate: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
-                          <select value={currentEmp.status} onChange={e => setCurrentEmp({...currentEmp, status: e.target.value as any})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                          <label htmlFor="emp-status" className="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
+                          <select id="emp-status" value={currentEmp.status} onChange={e => setCurrentEmp({...currentEmp, status: e.target.value as any})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                               <option value="ACTIVE">Đang làm việc</option>
                               <option value="INACTIVE">Đã nghỉ việc</option>
                           </select>
@@ -386,11 +386,13 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       <div className="md:col-span-2 mt-4">
                           <h4 className="font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><Briefcase size={16}/> Cấu hình Chấm công</h4>
                           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                               <label className="block text-sm font-bold text-slate-700 mb-2">Ca làm việc mặc định <span className="text-red-500">*</span></label>
+                               <label htmlFor="emp-defaultShiftId" className="block text-sm font-bold text-slate-700 mb-2">Ca làm việc mặc định <span className="text-red-500">*</span></label>
                                <select 
+                                    id="emp-defaultShiftId"
                                     value={currentEmp.defaultShiftId} 
                                     onChange={e => setCurrentEmp({...currentEmp, defaultShiftId: e.target.value})}
                                     className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                                    required
                                >
                                    <option value="">-- Chọn ca mặc định --</option>
                                    {shifts.map(s => (

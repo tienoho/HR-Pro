@@ -15,3 +15,7 @@
 ## 2025-01-27 - [Invisible Focusable Elements]
 **Learning:** Elements hidden with `opacity-0` for hover effects (like delete buttons in lists) remain in the tab order but are invisible when focused, confusing keyboard users. Playwright also considers them "not actionable".
 **Action:** Always add `focus:opacity-100` to elements that are hidden by default but reachable via keyboard, ensuring they become visible when they receive focus.
+
+## 2025-01-28 - [Employee Form Accessibility]
+**Learning:** Inputs in EmployeeManager modal were missing explicit label associations, making them inaccessible to screen readers and harder to target in automated tests (like Playwright).
+**Action:** Always add unique `id` attributes to inputs and matching `htmlFor` attributes to labels. Use the native `required` attribute for mandatory fields to provide semantic validation cues.
