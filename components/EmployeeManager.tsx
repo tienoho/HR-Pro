@@ -323,12 +323,16 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
       {/* Edit Modal */}
       {isEditing && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+              <form
+                className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200"
+                onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+              >
                   <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center sticky top-0 z-10">
                       <h3 className="font-bold text-lg text-slate-800">
                           {currentEmp.id && employees.find(e => e.id === currentEmp.id) ? 'Cập nhật Nhân sự' : 'Thêm mới Nhân sự'}
                       </h3>
                       <button
+                        type="button"
                         onClick={() => setIsEditing(false)}
                         className="text-slate-500 hover:text-slate-700 p-1 hover:bg-slate-100 rounded"
                         aria-label="Đóng"
@@ -342,20 +346,20 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                           <h4 className="font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><User size={16}/> Thông tin cá nhân</h4>
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Mã nhân viên (Human ID) <span className="text-red-500">*</span></label>
-                          <input type="text" value={currentEmp.code} onChange={e => setCurrentEmp({...currentEmp, code: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="NV001" />
+                          <label htmlFor="emp-code" className="block text-sm font-medium text-slate-700 mb-1">Mã nhân viên (Human ID) <span className="text-red-500">*</span></label>
+                          <input id="emp-code" required type="text" value={currentEmp.code} onChange={e => setCurrentEmp({...currentEmp, code: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="NV001" />
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Mã chấm công (Machine ID) <span className="text-red-500">*</span></label>
-                          <input type="text" value={currentEmp.timekeepingId} onChange={e => setCurrentEmp({...currentEmp, timekeepingId: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="101" />
+                          <label htmlFor="emp-timekeeping-id" className="block text-sm font-medium text-slate-700 mb-1">Mã chấm công (Machine ID) <span className="text-red-500">*</span></label>
+                          <input id="emp-timekeeping-id" required type="text" value={currentEmp.timekeepingId} onChange={e => setCurrentEmp({...currentEmp, timekeepingId: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="101" />
                       </div>
                       <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Họ và tên <span className="text-red-500">*</span></label>
-                          <input type="text" value={currentEmp.name} onChange={e => setCurrentEmp({...currentEmp, name: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nguyễn Văn A" />
+                          <label htmlFor="emp-name" className="block text-sm font-medium text-slate-700 mb-1">Họ và tên <span className="text-red-500">*</span></label>
+                          <input id="emp-name" required type="text" value={currentEmp.name} onChange={e => setCurrentEmp({...currentEmp, name: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nguyễn Văn A" />
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Phòng ban</label>
-                          <select value={currentEmp.department} onChange={e => setCurrentEmp({...currentEmp, department: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                          <label htmlFor="emp-dept" className="block text-sm font-medium text-slate-700 mb-1">Phòng ban</label>
+                          <select id="emp-dept" value={currentEmp.department} onChange={e => setCurrentEmp({...currentEmp, department: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                               <option value="IT">IT</option>
                               <option value="HR">HR</option>
                               <option value="Kho">Kho</option>
@@ -367,16 +371,16 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                           </select>
                       </div>
                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Chức danh</label>
-                          <input type="text" value={currentEmp.position} onChange={e => setCurrentEmp({...currentEmp, position: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                          <label htmlFor="emp-position" className="block text-sm font-medium text-slate-700 mb-1">Chức danh</label>
+                          <input id="emp-position" type="text" value={currentEmp.position} onChange={e => setCurrentEmp({...currentEmp, position: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Ngày vào làm</label>
-                          <input type="date" value={currentEmp.joinDate} onChange={e => setCurrentEmp({...currentEmp, joinDate: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                          <label htmlFor="emp-join-date" className="block text-sm font-medium text-slate-700 mb-1">Ngày vào làm</label>
+                          <input id="emp-join-date" type="date" value={currentEmp.joinDate} onChange={e => setCurrentEmp({...currentEmp, joinDate: e.target.value})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
-                          <select value={currentEmp.status} onChange={e => setCurrentEmp({...currentEmp, status: e.target.value as any})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                          <label htmlFor="emp-status" className="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
+                          <select id="emp-status" value={currentEmp.status} onChange={e => setCurrentEmp({...currentEmp, status: e.target.value as any})} className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                               <option value="ACTIVE">Đang làm việc</option>
                               <option value="INACTIVE">Đã nghỉ việc</option>
                           </select>
@@ -386,8 +390,10 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       <div className="md:col-span-2 mt-4">
                           <h4 className="font-bold text-slate-700 border-b pb-2 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><Briefcase size={16}/> Cấu hình Chấm công</h4>
                           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                               <label className="block text-sm font-bold text-slate-700 mb-2">Ca làm việc mặc định <span className="text-red-500">*</span></label>
+                               <label htmlFor="emp-default-shift" className="block text-sm font-bold text-slate-700 mb-2">Ca làm việc mặc định <span className="text-red-500">*</span></label>
                                <select 
+                                    id="emp-default-shift"
+                                    required
                                     value={currentEmp.defaultShiftId} 
                                     onChange={e => setCurrentEmp({...currentEmp, defaultShiftId: e.target.value})}
                                     className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
@@ -404,10 +410,10 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       </div>
                   </div>
                   <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 z-10">
-                      <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200">Hủy</button>
-                      <button onClick={handleSave} className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold flex items-center gap-2 shadow-md shadow-blue-200"><Check size={18}/> Lưu Hồ Sơ</button>
+                      <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200">Hủy</button>
+                      <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold flex items-center gap-2 shadow-md shadow-blue-200"><Check size={18}/> Lưu Hồ Sơ</button>
                   </div>
-              </div>
+              </form>
           </div>
       )}
     </div>

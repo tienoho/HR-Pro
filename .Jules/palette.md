@@ -15,3 +15,7 @@
 ## 2025-01-27 - [Invisible Focusable Elements]
 **Learning:** Elements hidden with `opacity-0` for hover effects (like delete buttons in lists) remain in the tab order but are invisible when focused, confusing keyboard users. Playwright also considers them "not actionable".
 **Action:** Always add `focus:opacity-100` to elements that are hidden by default but reachable via keyboard, ensuring they become visible when they receive focus.
+
+## 2025-01-29 - [Native Form Validation in Modals]
+**Learning:** Modal inputs lacking a wrapping `<form>` tag prevent standard "Enter to submit" behavior and bypass native browser validation (like `required`), forcing reliance on custom JS alerts which are poor UX.
+**Action:** Always wrap modal input fields in a `<form>` tag with an `onSubmit` handler, and set the primary action button to `type="submit"`.
