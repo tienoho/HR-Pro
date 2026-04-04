@@ -15,3 +15,7 @@
 ## 2025-01-27 - [Invisible Focusable Elements]
 **Learning:** Elements hidden with `opacity-0` for hover effects (like delete buttons in lists) remain in the tab order but are invisible when focused, confusing keyboard users. Playwright also considers them "not actionable".
 **Action:** Always add `focus:opacity-100` to elements that are hidden by default but reachable via keyboard, ensuring they become visible when they receive focus.
+
+## 2025-01-29 - [Accessible Modal Forms]
+**Learning:** Modals with manual validation and no `<form>` wrapper prevent standard keyboard interaction (Enter to submit) and fail accessibility checks (missing `role="dialog"`, `aria-labelledby`).
+**Action:** Wrap modal content in `<form>`, use native validation (`required`), and ensure proper ARIA attributes (`role`, `aria-modal`, `aria-labelledby`).
