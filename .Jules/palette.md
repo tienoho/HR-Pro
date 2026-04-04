@@ -15,3 +15,6 @@
 ## 2025-01-27 - [Invisible Focusable Elements]
 **Learning:** Elements hidden with `opacity-0` for hover effects (like delete buttons in lists) remain in the tab order but are invisible when focused, confusing keyboard users. Playwright also considers them "not actionable".
 **Action:** Always add `focus:opacity-100` to elements that are hidden by default but reachable via keyboard, ensuring they become visible when they receive focus.
+## 2025-01-29 - [Form Accessibility Pattern]
+**Learning:** The pattern of unassociated labels and inputs (missing `htmlFor`/`id`) was repeated in `EmployeeManager`, confirming it as a systematic oversight in the codebase.
+**Action:** Systematically check all forms (especially in modals) for this pattern. Wrapping inputs in a `<form>` tag also enables standard submit behavior (Enter key) which was missing.
