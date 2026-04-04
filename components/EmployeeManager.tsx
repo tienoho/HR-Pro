@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Employee, Shift } from '../types';
-import { Search, Plus, Filter, Edit2, Trash2, User, FileSpreadsheet, Download, Calendar, Check, Briefcase, AlertCircle } from 'lucide-react';
+import { Search, Plus, Filter, Edit2, Trash2, User, FileSpreadsheet, Download, Calendar, Check, Briefcase, AlertCircle, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface EmployeeManagerProps {
@@ -238,8 +238,18 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ employees, shifts, on
                       placeholder="Tìm theo Tên, Mã NV, Phòng ban..." 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full pl-9 pr-10 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   />
+                  {searchTerm && (
+                    <button
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
+                        aria-label="Xóa tìm kiếm"
+                        title="Xóa tìm kiếm"
+                    >
+                        <X size={16} />
+                    </button>
+                  )}
               </div>
           </div>
 
